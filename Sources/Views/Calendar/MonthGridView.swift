@@ -1,10 +1,30 @@
 import AppKit
 
 class MonthGridViewController: NSViewController {
+    private let containerView = SwipeableView()
     private let monthView = MonthGridView()
 
+    var onSwipeLeft: (() -> Void)? {
+        didSet { containerView.onSwipeLeft = onSwipeLeft }
+    }
+    var onSwipeRight: (() -> Void)? {
+        didSet { containerView.onSwipeRight = onSwipeRight }
+    }
+
     override func loadView() {
-        view = monthView
+        containerView.wantsLayer = true
+        monthView.translatesAutoresizingMaskIntoConstraints = false
+        
+        containerView.addSubview(monthView)
+        
+        NSLayoutConstraint.activate([
+            monthView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            monthView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            monthView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            monthView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        
+        view = containerView
     }
 
     func update(date: Date, events: [[DisplayEvent]] = []) {
@@ -54,7 +74,7 @@ class MonthGridView: NSView {
     }
 
     private func drawGrid(rows: Int, cellWidth: CGFloat, cellHeight: CGFloat) {
-        NSColor.separatorColor.setStroke()
+        NSColor(white: 230/255, alpha: 1).setStroke()
         for col in 0...7 {
             let x = CGFloat(col) * cellWidth
             NSBezierPath.strokeLine(from: NSPoint(x: x, y: headerHeight),

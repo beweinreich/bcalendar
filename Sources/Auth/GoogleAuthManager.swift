@@ -6,18 +6,13 @@ final class GoogleAuthManager {
 
     private var clientId: String = ""
     private var clientSecret: String = ""
-    private let redirectURI = "bcalendar://oauth/callback"
-    private let scope = "https://www.googleapis.com/auth/calendar"
+    private let scope = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
     private let authURL = "https://accounts.google.com/o/oauth2/v2/auth"
     private let tokenURL = "https://oauth2.googleapis.com/token"
     private let userinfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
-    private var pendingContinuation: CheckedContinuation<URL, Error>?
-
     init() {
         loadSecrets()
-        NotificationCenter.default.addObserver(self, selector: #selector(handleCallback(_:)),
-                                                name: .oauthCallback, object: nil)
     }
 
     private func loadSecrets() {
@@ -39,9 +34,8 @@ final class GoogleAuthManager {
     func authenticate() async throws -> (account: Account, token: OAuthToken) {
         guard isConfigured else { throw AuthError.notConfigured }
 
-        let callbackURL = try await startOAuthFlow()
-        let code = try extractCode(from: callbackURL)
-        let token = try await exchangeCode(code)
+        let (code, redirectURI) = try await startOAuthFlow()
+        let token = try await exchangeCode(code, redirectURI: redirectURI)
         let (email, name) = try await fetchUserInfo(token: token)
 
         let account = Account(email: email, displayName: name)
@@ -71,39 +65,24 @@ final class GoogleAuthManager {
 
     // MARK: - Private
 
-    private func startOAuthFlow() async throws -> URL {
-        var components = URLComponents(string: authURL)!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: clientId),
-            URLQueryItem(name: "redirect_uri", value: redirectURI),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: scope),
-            URLQueryItem(name: "access_type", value: "offline"),
-            URLQueryItem(name: "prompt", value: "consent"),
-        ]
-        NSWorkspace.shared.open(components.url!)
-
-        return try await withCheckedThrowingContinuation { cont in
-            self.pendingContinuation = cont
+    private func startOAuthFlow() async throws -> (code: String, redirectURI: String) {
+        let server = OAuthCallbackServer()
+        let (code, redirectURI) = try await server.waitForCode { redirectURI in
+            var components = URLComponents(string: self.authURL)!
+            components.queryItems = [
+                URLQueryItem(name: "client_id", value: self.clientId),
+                URLQueryItem(name: "redirect_uri", value: redirectURI),
+                URLQueryItem(name: "response_type", value: "code"),
+                URLQueryItem(name: "scope", value: self.scope),
+                URLQueryItem(name: "access_type", value: "offline"),
+                URLQueryItem(name: "prompt", value: "consent"),
+            ]
+            NSWorkspace.shared.open(components.url!)
         }
+        return (code, redirectURI)
     }
 
-    @objc private func handleCallback(_ notification: Notification) {
-        guard let url = notification.object as? URL else { return }
-        pendingContinuation?.resume(returning: url)
-        pendingContinuation = nil
-    }
-
-    private func extractCode(from url: URL) throws -> String {
-        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        guard let code = comps?.queryItems?.first(where: { $0.name == "code" })?.value else {
-            let error = comps?.queryItems?.first(where: { $0.name == "error" })?.value ?? "unknown"
-            throw AuthError.oauthError(error)
-        }
-        return code
-    }
-
-    private func exchangeCode(_ code: String) async throws -> OAuthToken {
+    private func exchangeCode(_ code: String, redirectURI: String) async throws -> OAuthToken {
         let params = [
             "code": code,
             "client_id": clientId,

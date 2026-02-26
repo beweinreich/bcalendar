@@ -10,33 +10,88 @@ class CalendarContainerViewController: NSViewController {
 
     private let dataSource = EventDataSource()
     private var activeVC: NSViewController?
+    private var contentContainer: NSView!
+    private var toolbarBar: NSView!
+    private var toolbarHeightConstraint: NSLayoutConstraint!
+
+    var toolbarView: NSView? {
+        didSet { installToolbarIfNeeded() }
+    }
 
     override func loadView() {
         view = NSView()
         view.wantsLayer = true
+
+        toolbarBar = NSView()
+        toolbarBar.wantsLayer = true
+        toolbarBar.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        toolbarBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(toolbarBar)
+
+        contentContainer = NSView()
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(contentContainer)
+
+        toolbarHeightConstraint = toolbarBar.heightAnchor.constraint(equalToConstant: 0)
+        NSLayoutConstraint.activate([
+            toolbarBar.topAnchor.constraint(equalTo: view.topAnchor),
+            toolbarBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            toolbarBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            toolbarHeightConstraint,
+            contentContainer.topAnchor.constraint(equalTo: toolbarBar.bottomAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        installToolbarIfNeeded()
+
         dataSource.reload()
-
         setupDragHandlers()
-
         NotificationCenter.default.addObserver(self, selector: #selector(dataChanged),
                                                 name: .eventsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(dataChanged),
                                                 name: .calendarsChanged, object: nil)
     }
 
+    private func installToolbarIfNeeded() {
+        guard let bar = toolbarBar, let toolView = toolbarView else { return }
+        guard toolView.superview != bar else { return }
+        toolView.removeFromSuperview()
+        bar.addSubview(toolView)
+        toolView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            toolView.topAnchor.constraint(equalTo: bar.topAnchor),
+            toolView.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            toolView.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            toolView.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
+        ])
+        toolbarHeightConstraint.constant = 52
+    }
+
     private func setupDragHandlers() {
         let grids = [weekVC.timeGrid, dayVC.timeGrid]
         for grid in grids {
             grid.dragController.delegate = self
-
-            grid.onEventClicked = { [weak self] eventId, screenPoint in
-                self?.showEventPopover(eventId: eventId, at: screenPoint, from: grid)
-            }
             grid.onEventDoubleClicked = { [weak self] eventId in
                 self?.editEvent(eventId: eventId)
             }
+            grid.onEventDeleteRequested = { [weak self] eventId in
+                self?.confirmAndDeleteEvent(eventId: eventId)
+            }
         }
+        weekVC.onNavigateByDays = { [weak self] days in
+            guard let self = self else { return }
+            self.currentDate = Calendar.current.date(byAdding: .day, value: days, to: self.currentDate)!
+            self.updateActiveView()
+            self.onNavigate?()
+        }
+        dayVC.onSwipeLeft = { [weak self] in self?.navigateForward() }
+        dayVC.onSwipeRight = { [weak self] in self?.navigateBackward() }
+        monthVC.onSwipeLeft = { [weak self] in self?.navigateForward() }
+        monthVC.onSwipeRight = { [weak self] in self?.navigateBackward() }
     }
+
+    var onNavigate: (() -> Void)?
 
     @objc private func dataChanged() {
         dataSource.reload()
@@ -45,6 +100,9 @@ class CalendarContainerViewController: NSViewController {
 
     func switchTo(mode: ViewMode) {
         currentMode = mode
+        if mode == .week {
+            currentDate = Calendar.current.dateInterval(of: .weekOfYear, for: currentDate)!.start
+        }
         let newVC: NSViewController
         switch mode {
         case .day:   newVC = dayVC
@@ -63,6 +121,7 @@ class CalendarContainerViewController: NSViewController {
         case .month: currentDate = cal.date(byAdding: .month, value: 1, to: currentDate)!
         }
         updateActiveView()
+        onNavigate?()
     }
 
     func navigateBackward() {
@@ -73,11 +132,13 @@ class CalendarContainerViewController: NSViewController {
         case .month: currentDate = cal.date(byAdding: .month, value: -1, to: currentDate)!
         }
         updateActiveView()
+        onNavigate?()
     }
 
     func navigateTo(date: Date) {
         currentDate = date
         updateActiveView()
+        onNavigate?()
     }
 
     private func swapChild(to newVC: NSViewController) {
@@ -85,9 +146,9 @@ class CalendarContainerViewController: NSViewController {
         activeVC?.removeFromParent()
 
         addChild(newVC)
-        newVC.view.frame = view.bounds
+        newVC.view.frame = contentContainer.bounds
         newVC.view.autoresizingMask = [.width, .height]
-        view.addSubview(newVC.view)
+        contentContainer.addSubview(newVC.view)
         activeVC = newVC
     }
 
@@ -96,30 +157,11 @@ class CalendarContainerViewController: NSViewController {
         case .day:
             dayVC.update(date: currentDate, events: dataSource.eventsForDay(date: currentDate))
         case .week:
-            weekVC.update(date: currentDate, events: dataSource.eventsForWeek(date: currentDate))
+            let rangeStart = weekVC.rangeStartDate(for: currentDate)
+            weekVC.update(date: currentDate, events: dataSource.eventsForRange(startDate: rangeStart, days: weekVC.totalColumns))
         case .month:
             monthVC.update(date: currentDate, events: dataSource.eventsForMonth(date: currentDate))
         }
-    }
-
-    private func showEventPopover(eventId: String, at screenPoint: NSPoint, from sourceView: NSView) {
-        guard let event = try? EventStore(db: DatabaseManager.shared.pool).find(eventId) else { return }
-
-        let color = dataSource.calendarColors(for: event.calendarId)
-        let popoverVC = EventPopoverController()
-        popoverVC.configure(event: event, color: color)
-        popoverVC.onEdit = { [weak self] event in
-            self?.editEvent(event: event)
-        }
-        popoverVC.onDelete = { [weak self] event in
-            self?.deleteEvent(event)
-        }
-
-        let popover = NSPopover()
-        popover.contentViewController = popoverVC
-        popover.behavior = .transient
-        let localPoint = sourceView.convert(screenPoint, from: nil)
-        popover.show(relativeTo: NSRect(origin: localPoint, size: .zero), of: sourceView, preferredEdge: .maxY)
     }
 
     private func editEvent(eventId: String) {
@@ -144,6 +186,29 @@ class CalendarContainerViewController: NSViewController {
             }
         } else {
             EventEditorWindow.showEdit(event: event, relativeTo: view.window)
+        }
+    }
+
+    private func confirmAndDeleteEvent(eventId: String) {
+        guard let event = try? EventStore(db: DatabaseManager.shared.pool).find(eventId) else { return }
+        
+        let alert = NSAlert()
+        alert.messageText = "Delete Event"
+        alert.informativeText = "Are you sure you want to delete this event?"
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        
+        if let window = view.window {
+            alert.beginSheetModal(for: window) { [weak self] response in
+                if response == .alertFirstButtonReturn {
+                    self?.deleteEvent(event)
+                }
+            }
+        } else {
+            if alert.runModal() == .alertFirstButtonReturn {
+                deleteEvent(event)
+            }
         }
     }
 

@@ -8,29 +8,26 @@ class SidebarViewController: NSViewController {
     override func loadView() {
         let container = NSView()
         container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-
-        let stack = NSStackView(views: [miniMonth, calendarList])
+        // Calendars at top (scrollable), month view fixed at bottom
+        let stack = NSStackView(views: [calendarList, miniMonth])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 20
+        stack.spacing = 12
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
 
-        scrollView.documentView = stack
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(scrollView)
+        miniMonth.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        calendarList.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-
-            stack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
             miniMonth.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24),
             miniMonth.heightAnchor.constraint(equalToConstant: 190),

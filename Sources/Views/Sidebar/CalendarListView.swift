@@ -21,12 +21,6 @@ class CalendarListView: NSView {
     }
 
     private func setup() {
-        let header = NSTextField(labelWithString: "CALENDARS")
-        header.font = .systemFont(ofSize: 11, weight: .semibold)
-        header.textColor = .secondaryLabelColor
-        header.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(header)
-
         let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("cal"))
         col.title = ""
         outlineView.addTableColumn(col)
@@ -38,7 +32,7 @@ class CalendarListView: NSView {
         outlineView.indentationPerLevel = 16
 
         scrollView.documentView = outlineView
-        scrollView.hasVerticalScroller = false
+        scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
@@ -51,9 +45,7 @@ class CalendarListView: NSView {
         addSubview(addButton)
 
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: topAnchor),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 6),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             addButton.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 8),
@@ -74,11 +66,6 @@ class CalendarListView: NSView {
             outlineView.expandItem(acct.id)
         }
 
-        let calCount = calendarsByAccount.values.flatMap({ $0 }).count
-        let rowHeight: CGFloat = 24
-        let headerRows = CGFloat(accounts.count)
-        let totalRows = headerRows + CGFloat(calCount)
-        scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: min(totalRows * rowHeight, 300)).isActive = true
     }
 
     @objc private func addAccountClicked() {
@@ -161,7 +148,7 @@ extension CalendarListView: NSOutlineViewDelegate {
             label.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(label)
             NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 18),
                 label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
             return cell
@@ -171,13 +158,6 @@ extension CalendarListView: NSOutlineViewDelegate {
         guard let cal = allCalendars.first(where: { $0.id == id }) else { return nil }
 
         let cell = NSTableCellView()
-
-        let colorDot = NSView()
-        colorDot.wantsLayer = true
-        colorDot.layer?.backgroundColor = GoogleColorMap.color(for: cal.colorHex).cgColor
-        colorDot.layer?.cornerRadius = 5
-        colorDot.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(colorDot)
 
         let checkbox = NSButton(checkboxWithTitle: cal.summary, target: self,
                                 action: #selector(calendarCheckboxToggled(_:)))
@@ -200,11 +180,7 @@ extension CalendarListView: NSOutlineViewDelegate {
         }
 
         NSLayoutConstraint.activate([
-            colorDot.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-            colorDot.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            colorDot.widthAnchor.constraint(equalToConstant: 10),
-            colorDot.heightAnchor.constraint(equalToConstant: 10),
-            checkbox.leadingAnchor.constraint(equalTo: colorDot.trailingAnchor, constant: 4),
+            checkbox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
             checkbox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
 

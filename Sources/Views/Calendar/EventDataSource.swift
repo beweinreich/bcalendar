@@ -83,6 +83,22 @@ final class EventDataSource {
         return result
     }
 
+    func eventsForRange(startDate: Date, days: Int) -> [Int: [DisplayEvent]] {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: startDate)
+        let end = cal.date(byAdding: .day, value: days, to: start)!
+        let events = fetchAndExpand(from: start, to: end)
+
+        var result: [Int: [DisplayEvent]] = [:]
+        for event in events {
+            let col = cal.dateComponents([.day], from: start, to: event.start).day ?? 0
+            if col >= 0, col < days {
+                result[col, default: []].append(toDisplay(event))
+            }
+        }
+        return result
+    }
+
     func eventsForDay(date: Date) -> [Int: [DisplayEvent]] {
         let cal = Calendar.current
         let dayStart = cal.startOfDay(for: date)

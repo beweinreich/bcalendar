@@ -17,7 +17,7 @@ enum EventEditorWindow {
                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "New Event"
 
-        let editorView = EventEditorView(event: nil, calendars: calendars, onSave: { data in
+        let editorView = EventEditorView(event: nil, startDate: startDate, endDate: endDate, isAllDay: allDay, calendars: calendars, onSave: { data in
             let accountId = calendars.first(where: { $0.id == data.calendarId })
                 .flatMap({ acct in accounts.first(where: { $0.id == acct.accountId }) })?.id ?? defaultAccountId
             EventActions.createEvent(data: data, accountId: accountId)

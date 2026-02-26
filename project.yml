@@ -12,8 +12,10 @@ targets:
   BCalendar:
     type: application
     platform: macOS
-    sources: [Sources]
-    resources: [Resources]
+    sources:
+      - Sources
+      - path: Resources
+        buildPhase: resources
     settings:
       base:
         INFOPLIST_FILE: Resources/Info.plist

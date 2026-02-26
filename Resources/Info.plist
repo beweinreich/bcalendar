@@ -22,16 +22,5 @@
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>com.bcalendar.oauth</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>bcalendar</string>
-            </array>
-        </dict>
-    </array>
 </dict>
 </plist>

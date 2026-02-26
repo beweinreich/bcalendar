@@ -28,12 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
-    func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "bcalendar" {
-            NotificationCenter.default.post(name: .oauthCallback, object: url)
-        }
-    }
-
     // MARK: - Main Menu
 
     private func buildMainMenu() {
@@ -53,6 +47,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(withTitle: "New Event",
                          action: #selector(MainWindowController.newEvent), keyEquivalent: "n")
+        fileMenu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(AppDelegate.showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        fileMenu.addItem(settingsItem)
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Close Window",
                          action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
@@ -100,5 +98,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.mainMenu = mainMenu
         NSApp.windowsMenu = windowMenu
+    }
+
+    @objc func showSettings() {
+        SettingsWindowController.show()
     }
 }

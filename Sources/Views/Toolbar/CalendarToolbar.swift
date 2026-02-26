@@ -69,6 +69,39 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
     @objc private func forwardClicked() { onNavigateForward?() }
     @objc private func todayClicked() { onToday?() }
 
+    /// Returns a view with the same controls for embedding in the content area (toolbar only over main content).
+    func makeEmbeddedView() -> NSView {
+        let back = NSButton(image: NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")!,
+                            target: self, action: #selector(backClicked))
+        back.bezelStyle = .regularSquare
+        let forward = NSButton(image: NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")!,
+                               target: self, action: #selector(forwardClicked))
+        forward.bezelStyle = .regularSquare
+        let today = NSButton(title: "Today", target: self, action: #selector(todayClicked))
+        today.bezelStyle = .rounded
+        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        viewSegment.target = self
+        viewSegment.action = #selector(viewSegmentChanged(_:))
+        let stack = NSStackView(views: [back, forward, today, titleLabel, viewSegment])
+        stack.orientation = .horizontal
+        stack.spacing = 12
+        stack.alignment = .centerY
+        stack.setCustomSpacing(24, after: today)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let container = NSView()
+        container.wantsLayer = true
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            container.heightAnchor.constraint(equalToConstant: 52),
+        ])
+        return container
+    }
+
     // MARK: - NSToolbarDelegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {

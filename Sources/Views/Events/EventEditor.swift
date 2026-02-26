@@ -17,7 +17,7 @@ struct EventEditorView: View {
     let onSave: (EventEditorData) -> Void
     let onCancel: () -> Void
 
-    init(event: Event? = nil, calendars: [GCalendar], onSave: @escaping (EventEditorData) -> Void, onCancel: @escaping () -> Void) {
+    init(event: Event? = nil, startDate: Date? = nil, endDate: Date? = nil, isAllDay: Bool? = nil, calendars: [GCalendar], onSave: @escaping (EventEditorData) -> Void, onCancel: @escaping () -> Void) {
         self.calendars = calendars
         self.isNewEvent = event == nil
         self.onSave = onSave
@@ -27,9 +27,9 @@ struct EventEditorView: View {
         _title = State(initialValue: e?.summary ?? "")
         _location = State(initialValue: e?.location ?? "")
         _notes = State(initialValue: e?.eventDescription ?? "")
-        _startDate = State(initialValue: e?.start ?? Date())
-        _endDate = State(initialValue: e?.end ?? Date().addingTimeInterval(3600))
-        _isAllDay = State(initialValue: e?.allDay ?? false)
+        _startDate = State(initialValue: e?.start ?? startDate ?? Date())
+        _endDate = State(initialValue: e?.end ?? endDate ?? Date().addingTimeInterval(3600))
+        _isAllDay = State(initialValue: e?.allDay ?? isAllDay ?? false)
         _selectedCalendarId = State(initialValue: e?.calendarId ?? calendars.first?.id ?? "")
         _recurrenceRule = State(initialValue: e?.recurrence ?? "")
         _reminderMinutes = State(initialValue: 10)

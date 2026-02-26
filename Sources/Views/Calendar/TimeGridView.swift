@@ -1,9 +1,85 @@
 import AppKit
 
+class TimeGridHeaderView: NSView {
+    var displayDate = Date() { didSet { needsDisplay = true } }
+    var numberOfColumns = 7 { didSet { needsDisplay = true } }
+    var usesCustomStartDate = false
+
+    let gutterWidth: CGFloat = 56
+    let headerHeight: CGFloat = 50
+
+    private let cal = Calendar.current
+
+    override var isFlipped: Bool { true }
+
+    func weekStartDate() -> Date {
+        if numberOfColumns == 1 || usesCustomStartDate {
+            return cal.startOfDay(for: displayDate)
+        }
+        return cal.dateInterval(of: .weekOfYear, for: displayDate)!.start
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlBackgroundColor.setFill()
+        bounds.fill()
+
+        let contentWidth = bounds.width - gutterWidth
+        let colWidth = contentWidth / CGFloat(numberOfColumns)
+        let weekStart = weekStartDate()
+        let today = Date()
+
+        for col in 0..<numberOfColumns {
+            let colDate = cal.date(byAdding: .day, value: col, to: weekStart)!
+            let isToday = cal.isToday(colDate)
+
+            let dayStr: String
+            if numberOfColumns == 1 {
+                dayStr = colDate.formatted(as: "EEEE, MMM d")
+            } else {
+                dayStr = colDate.formatted(as: "EEE")
+            }
+            let dayNum = "\(cal.component(.day, from: colDate))"
+            let x = gutterWidth + CGFloat(col) * colWidth
+
+            let nameAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                .foregroundColor: isToday ? NSColor.systemRed : NSColor.secondaryLabelColor
+            ]
+            let nameStr = NSAttributedString(string: dayStr.uppercased(), attributes: nameAttrs)
+            let nameSize = nameStr.size()
+            nameStr.draw(at: NSPoint(x: x + colWidth / 2 - nameSize.width / 2, y: 6))
+
+            if numberOfColumns > 1 {
+                let numAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 18, weight: isToday ? .bold : .regular),
+                    .foregroundColor: isToday ? NSColor.white : NSColor.labelColor
+                ]
+                let numStr = NSAttributedString(string: dayNum, attributes: numAttrs)
+                let numSize = numStr.size()
+                let cx = x + colWidth / 2
+                let cy: CGFloat = 30
+
+                if isToday {
+                    let r: CGFloat = 14
+                    NSColor.systemRed.setFill()
+                    NSBezierPath(ovalIn: NSRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)).fill()
+                }
+                numStr.draw(at: NSPoint(x: cx - numSize.width / 2, y: cy - numSize.height / 2))
+            }
+        }
+
+        NSColor(white: 230/255, alpha: 1).setStroke()
+        NSBezierPath.strokeLine(from: NSPoint(x: gutterWidth, y: headerHeight),
+                                to: NSPoint(x: bounds.width, y: headerHeight))
+    }
+}
+
 class TimeGridView: NSView {
     var displayDate = Date() { didSet { needsDisplay = true } }
     var numberOfColumns = 7 { didSet { needsDisplay = true } }
     var events: [Int: [DisplayEvent]] = [:]
+    var bodyOnly = false { didSet { needsDisplay = true } }
+    var usesCustomStartDate = false
 
     let hourHeight: CGFloat = 60
     let gutterWidth: CGFloat = 56
@@ -13,14 +89,35 @@ class TimeGridView: NSView {
 
     override var isFlipped: Bool { true }
 
-    var totalHeight: CGFloat { headerHeight + hourHeight * 24 }
+    var totalHeight: CGFloat { bodyOnly ? hourHeight * 24 : headerHeight + hourHeight * 24 }
 
-    var onEventClicked: ((String, NSPoint) -> Void)?
     var onEventDoubleClicked: ((String) -> Void)?
+    var onEventDeleteRequested: ((String) -> Void)?
+    var selectedEventId: String? { didSet { needsDisplay = true } }
     let dragController = DragController()
 
+    override var acceptsFirstResponder: Bool { return true }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 51 || event.keyCode == 117 { // Delete or Forward Delete
+            if let selectedEventId = selectedEventId {
+                onEventDeleteRequested?(selectedEventId)
+                return
+            }
+        }
+        super.keyDown(with: event)
+    }
+
     override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
+        
+        if let (eventId, _) = dragController.hitTestEvent(at: pt, in: self) {
+            selectedEventId = eventId
+        } else {
+            selectedEventId = nil
+        }
+        
         if event.clickCount == 2 {
             if let (eventId, _) = dragController.hitTestEvent(at: pt, in: self) {
                 onEventDoubleClicked?(eventId)
@@ -37,14 +134,10 @@ class TimeGridView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         let pt = convert(event.locationInWindow, from: nil)
-        let dist = hypot(pt.x - dragController.dragStartPoint.x, pt.y - dragController.dragStartPoint.y)
-        if dist < 3, event.clickCount == 1 {
-            if let (eventId, _) = dragController.hitTestEvent(at: pt, in: self) {
-                onEventClicked?(eventId, convert(pt, to: nil))
-            }
-        }
         dragController.mouseUp(at: pt, in: self)
     }
+
+    var bodyTopOffset: CGFloat { bodyOnly ? 0 : headerHeight }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.controlBackgroundColor.setFill()
@@ -54,7 +147,9 @@ class TimeGridView: NSView {
         let colWidth = contentWidth / CGFloat(numberOfColumns)
         let weekStart = weekStartDate()
 
-        drawColumnHeaders(weekStart: weekStart, colWidth: colWidth)
+        if !bodyOnly {
+            drawColumnHeaders(weekStart: weekStart, colWidth: colWidth)
+        }
         drawHourLabelsAndLines(colWidth: colWidth)
         drawColumnSeparators(colWidth: colWidth)
         drawCurrentTimeLine(weekStart: weekStart, colWidth: colWidth)
@@ -62,7 +157,7 @@ class TimeGridView: NSView {
     }
 
     func weekStartDate() -> Date {
-        if numberOfColumns == 1 {
+        if numberOfColumns == 1 || usesCustomStartDate {
             return cal.startOfDay(for: displayDate)
         }
         return cal.dateInterval(of: .weekOfYear, for: displayDate)!.start
@@ -110,25 +205,26 @@ class TimeGridView: NSView {
             }
         }
 
-        NSColor.separatorColor.setStroke()
+        NSColor(white: 230/255, alpha: 1).setStroke()
         NSBezierPath.strokeLine(from: NSPoint(x: gutterWidth, y: headerHeight),
                                 to: NSPoint(x: bounds.width, y: headerHeight))
     }
 
     private func drawHourLabelsAndLines(colWidth: CGFloat) {
-        NSColor.separatorColor.withAlphaComponent(0.5).setStroke()
         let hourFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
         let hourColor = NSColor.tertiaryLabelColor
 
         for hour in 0...23 {
-            let y = headerHeight + CGFloat(hour) * hourHeight
+            let y = bodyTopOffset + CGFloat(hour) * hourHeight
             let label = hourLabel(hour)
             let attrs: [NSAttributedString.Key: Any] = [.font: hourFont, .foregroundColor: hourColor]
             let s = NSAttributedString(string: label, attributes: attrs)
             let sz = s.size()
             s.draw(at: NSPoint(x: gutterWidth - sz.width - 6, y: y - sz.height / 2))
 
+            NSColor(white: 230/255, alpha: 1).setStroke()
             let line = NSBezierPath()
+            line.lineWidth = 0.5
             line.move(to: NSPoint(x: gutterWidth, y: y))
             line.line(to: NSPoint(x: bounds.width, y: y))
             line.stroke()
@@ -136,10 +232,10 @@ class TimeGridView: NSView {
     }
 
     private func drawColumnSeparators(colWidth: CGFloat) {
-        NSColor.separatorColor.withAlphaComponent(0.3).setStroke()
+        NSColor(white: 230/255, alpha: 1).setStroke()
         for col in 0...numberOfColumns {
             let x = gutterWidth + CGFloat(col) * colWidth
-            NSBezierPath.strokeLine(from: NSPoint(x: x, y: headerHeight),
+            NSBezierPath.strokeLine(from: NSPoint(x: x, y: bodyTopOffset),
                                     to: NSPoint(x: x, y: bounds.height))
         }
     }
@@ -152,7 +248,7 @@ class TimeGridView: NSView {
         let dayOffset = cal.dateComponents([.day], from: weekStart, to: now).day ?? 0
         let comps = cal.dateComponents([.hour, .minute], from: now)
         let minutesSinceMidnight = CGFloat(comps.hour! * 60 + comps.minute!)
-        let y = headerHeight + (minutesSinceMidnight / 60.0) * hourHeight
+        let y = bodyTopOffset + (minutesSinceMidnight / 60.0) * hourHeight
         let x = gutterWidth + CGFloat(dayOffset) * colWidth
 
         NSColor.systemRed.setFill()
@@ -173,12 +269,16 @@ class TimeGridView: NSView {
             for event in dayEvents where !event.isAllDay {
                 let startComps = cal.dateComponents([.hour, .minute], from: event.start)
                 let endComps = cal.dateComponents([.hour, .minute], from: event.end)
-                let startY = headerHeight + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
-                let endY = headerHeight + CGFloat(endComps.hour! * 60 + endComps.minute!) / 60.0 * hourHeight
+                let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
+                let endY = bodyTopOffset + CGFloat(endComps.hour! * 60 + endComps.minute!) / 60.0 * hourHeight
                 let x = gutterWidth + CGFloat(col) * colWidth + 1
 
                 let rect = NSRect(x: x, y: startY, width: colWidth - 2, height: max(endY - startY, hourHeight / 4))
-                event.color.withAlphaComponent(0.15).setFill()
+                
+                let isSelected = event.id == selectedEventId
+                let bgAlpha: CGFloat = isSelected ? 0.4 : 0.15
+                
+                event.color.withAlphaComponent(bgAlpha).setFill()
                 let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
                 path.fill()
 
@@ -186,12 +286,38 @@ class TimeGridView: NSView {
                 NSBezierPath(rect: NSRect(x: x, y: startY, width: 3, height: rect.height)).fill()
 
                 let attrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                    .foregroundColor: event.color
+                    .font: NSFont.systemFont(ofSize: 11, weight: isSelected ? .bold : .medium),
+                    .foregroundColor: isSelected ? event.color.blended(withFraction: 0.2, of: .black) ?? event.color : event.color
                 ]
                 let title = NSAttributedString(string: event.title, attributes: attrs)
                 title.draw(in: rect.insetBy(dx: 6, dy: 2))
             }
+        }
+        
+        if let tempEvent = dragController.getTemporaryCreateEvent() {
+            let startComps = cal.dateComponents([.hour, .minute], from: tempEvent.start)
+            let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
+            let height = CGFloat(tempEvent.end.timeIntervalSince(tempEvent.start)) / 3600.0 * hourHeight
+            let x = gutterWidth + CGFloat(tempEvent.column) * colWidth + 1
+            
+            let rect = NSRect(x: x, y: startY, width: colWidth - 2, height: max(height, hourHeight / 4))
+            
+            NSColor.systemBlue.withAlphaComponent(0.15).setFill()
+            let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
+            path.fill()
+            
+            NSColor.systemBlue.setFill()
+            NSBezierPath(rect: NSRect(x: x, y: startY, width: 3, height: rect.height)).fill()
+            
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: NSColor.systemBlue
+            ]
+            let timeFormatter = DateFormatter()
+            timeFormatter.timeStyle = .short
+            let titleStr = "New Event (\(timeFormatter.string(from: tempEvent.start)) - \(timeFormatter.string(from: tempEvent.end)))"
+            let title = NSAttributedString(string: titleStr, attributes: attrs)
+            title.draw(in: rect.insetBy(dx: 6, dy: 2))
         }
     }
 
