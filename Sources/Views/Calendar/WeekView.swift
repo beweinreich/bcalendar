@@ -205,7 +205,8 @@ class WeekViewController: NSViewController {
     }
 
     private func syncHeaderWithScroll() {
-        headerView.frame.origin.x = -scrollView.contentView.bounds.origin.x
+        let scrollH = containerView.bounds.height - timeGrid.headerHeight
+        headerView.frame.origin = NSPoint(x: -scrollView.contentView.bounds.origin.x, y: scrollH)
     }
 
     override func viewDidAppear() {
@@ -253,9 +254,10 @@ class WeekViewController: NSViewController {
         let dayWidth = (visibleWidth - gutterWidth) / 7.0
         let totalWidth = gutterWidth + CGFloat(totalColumns) * dayWidth
         let headerH = timeGrid.headerHeight
+        let scrollH = visibleHeight - headerH
 
-        headerView.frame = NSRect(x: 0, y: 0, width: totalWidth, height: headerH)
-        scrollView.frame = NSRect(x: 0, y: headerH, width: visibleWidth, height: visibleHeight - headerH)
+        headerView.frame = NSRect(x: 0, y: scrollH, width: totalWidth, height: headerH)
+        scrollView.frame = NSRect(x: 0, y: 0, width: visibleWidth, height: scrollH)
         timeGrid.frame = NSRect(x: 0, y: 0, width: totalWidth, height: timeGrid.totalHeight)
         gutterOverlay.frame = NSRect(x: 0, y: 0, width: gutterWidth, height: visibleHeight)
 
@@ -309,7 +311,8 @@ class WeekViewController: NSViewController {
                 newBounds.origin.x = centerX
                 self.scrollView.contentView.animator().bounds = newBounds
             }
-            headerView.animator().setFrameOrigin(NSPoint(x: -centerX, y: 0))
+            let scrollH = self.containerView.bounds.height - self.timeGrid.headerHeight
+            headerView.animator().setFrameOrigin(NSPoint(x: -centerX, y: scrollH))
         }
     }
 }

@@ -23,7 +23,11 @@ final class SettingsWindowController: NSWindowController {
         if shared == nil {
             shared = SettingsWindowController()
         }
+        guard let window = shared?.window else { return }
+        let contentSize = NSSize(width: 700, height: 500)
+        window.setContentSize(contentSize)
+        window.center()
         shared?.showWindow(nil)
-        shared?.window?.makeKeyAndOrderFront(nil)
+        window.makeKeyAndOrderFront(nil)
     }
 }

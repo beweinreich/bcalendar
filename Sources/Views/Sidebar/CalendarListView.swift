@@ -1,7 +1,11 @@
 import AppKit
 
+private class NoDisclosureOutlineView: NSOutlineView {
+    override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
+}
+
 class CalendarListView: NSView {
-    private let outlineView = NSOutlineView()
+    private let outlineView = NoDisclosureOutlineView()
     private let scrollView = NSScrollView()
     private let addButton = NSButton()
     private var accounts: [Account] = []
@@ -20,16 +24,17 @@ class CalendarListView: NSView {
         setup()
     }
 
+    private static let contentColId = NSUserInterfaceItemIdentifier("content")
+
     private func setup() {
-        let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("cal"))
-        col.title = ""
-        outlineView.addTableColumn(col)
-        outlineView.outlineTableColumn = col
+        let contentCol = NSTableColumn(identifier: Self.contentColId)
+        contentCol.title = ""
+        outlineView.addTableColumn(contentCol)
+        outlineView.outlineTableColumn = contentCol
         outlineView.headerView = nil
         outlineView.dataSource = self
         outlineView.delegate = self
-        outlineView.rowHeight = 24
-        outlineView.indentationPerLevel = 16
+        outlineView.indentationPerLevel = 0
 
         scrollView.documentView = outlineView
         scrollView.hasVerticalScroller = true
@@ -112,6 +117,18 @@ class CalendarListView: NSView {
         NotificationCenter.default.post(name: .calendarsChanged, object: nil)
         NotificationCenter.default.post(name: .eventsChanged, object: nil)
     }
+
+    @objc private func accountRowToggled(_ sender: NSButton) {
+        let row = outlineView.row(for: sender)
+        guard row >= 0, let item = outlineView.item(atRow: row),
+              accounts.contains(where: { $0.id == item as? String }) else { return }
+        if outlineView.isItemExpanded(item) {
+            outlineView.collapseItem(item)
+        } else {
+            outlineView.expandItem(item)
+        }
+        outlineView.reloadData(forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+    }
 }
 
 extension CalendarListView: NSOutlineViewDataSource {
@@ -138,18 +155,49 @@ extension CalendarListView: NSOutlineViewDataSource {
 }
 
 extension CalendarListView: NSOutlineViewDelegate {
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+        if accounts.contains(where: { $0.id == item as? String }) { return 38 }
+        return 24
+    }
+
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         guard let id = item as? String else { return nil }
+        guard tableColumn?.identifier == Self.contentColId else {
+            return NSTableCellView()
+        }
 
         if let account = accounts.first(where: { $0.id == id }) {
             let cell = NSTableCellView()
-            let label = NSTextField(labelWithString: account.displayName.isEmpty ? account.email : account.displayName)
+            let label = NSTextField(labelWithString: account.email)
             label.font = .systemFont(ofSize: 12, weight: .semibold)
             label.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(label)
+
+            let isExpanded = outlineView.isItemExpanded(id)
+            let caret = NSImageView(image: NSImage(systemSymbolName: isExpanded ? "chevron.down" : "chevron.right", accessibilityDescription: nil)!)
+            caret.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+            caret.contentTintColor = .secondaryLabelColor
+            caret.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(caret)
+
+            let hitButton = NSButton()
+            hitButton.title = ""
+            hitButton.translatesAutoresizingMaskIntoConstraints = false
+            hitButton.bezelStyle = .regularSquare
+            hitButton.isBordered = false
+            hitButton.target = self
+            hitButton.action = #selector(accountRowToggled(_:))
+            cell.addSubview(hitButton)
+
             NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 18),
-                label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+                label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 14),
+                caret.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                caret.centerYAnchor.constraint(equalTo: label.centerYAnchor),
+                hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
+                hitButton.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+                hitButton.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
+                hitButton.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
             ])
             return cell
         }
@@ -159,12 +207,33 @@ extension CalendarListView: NSOutlineViewDelegate {
 
         let cell = NSTableCellView()
 
-        let checkbox = NSButton(checkboxWithTitle: cal.summary, target: self,
-                                action: #selector(calendarCheckboxToggled(_:)))
-        checkbox.state = cal.selected ? .on : .off
-        checkbox.font = .systemFont(ofSize: 12)
-        checkbox.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(checkbox)
+        let colorBox = NSView()
+        colorBox.wantsLayer = true
+        colorBox.layer?.backgroundColor = GoogleColorMap.color(for: cal.colorHex).cgColor
+        colorBox.layer?.cornerRadius = 4
+        colorBox.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(colorBox)
+
+        let checkmark = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)!)
+        checkmark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .bold)
+        checkmark.contentTintColor = .white
+        checkmark.translatesAutoresizingMaskIntoConstraints = false
+        checkmark.isHidden = !cal.selected
+        cell.addSubview(checkmark)
+
+        let label = NSTextField(labelWithString: cal.summary)
+        label.font = .systemFont(ofSize: 12)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(label)
+
+        let hitButton = NSButton()
+        hitButton.title = ""
+        hitButton.translatesAutoresizingMaskIntoConstraints = false
+        hitButton.bezelStyle = .regularSquare
+        hitButton.isBordered = false
+        hitButton.target = self
+        hitButton.action = #selector(calendarCheckboxToggled(_:))
+        cell.addSubview(hitButton)
 
         if cal.isReadOnly {
             let lock = NSImageView(image: NSImage(systemSymbolName: "lock.fill",
@@ -180,10 +249,21 @@ extension CalendarListView: NSOutlineViewDelegate {
         }
 
         NSLayoutConstraint.activate([
-            checkbox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-            checkbox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            colorBox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            colorBox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            colorBox.widthAnchor.constraint(equalToConstant: 18),
+            colorBox.heightAnchor.constraint(equalToConstant: 18),
+            checkmark.centerXAnchor.constraint(equalTo: colorBox.centerXAnchor),
+            checkmark.centerYAnchor.constraint(equalTo: colorBox.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: colorBox.trailingAnchor, constant: 6),
+            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
+            hitButton.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            hitButton.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
+            hitButton.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
         ])
 
         return cell
     }
 }
+

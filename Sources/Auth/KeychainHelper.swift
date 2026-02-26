@@ -4,12 +4,15 @@ import Security
 enum KeychainHelper {
     private static let service = "com.bcalendar.oauth"
 
+    private static let baseQuery: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecUseDataProtectionKeychain as String: true,
+    ]
+
     static func save(account: String, data: Data) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
+        var query = baseQuery
+        query[kSecAttrAccount as String] = account
         SecItemDelete(query as CFDictionary)
 
         var addQuery = query
@@ -21,13 +24,10 @@ enum KeychainHelper {
     }
 
     static func load(account: String) -> Data? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        var query = baseQuery
+        query[kSecAttrAccount as String] = account
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess else { return nil }
@@ -35,11 +35,8 @@ enum KeychainHelper {
     }
 
     static func delete(account: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
+        var query = baseQuery
+        query[kSecAttrAccount as String] = account
         SecItemDelete(query as CFDictionary)
     }
 }

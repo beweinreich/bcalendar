@@ -31,7 +31,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
         viewSegment.selectedSegment = 2
 
         titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
-        titleLabel.alignment = .center
+        titleLabel.alignment = .left
         titleLabel.isEditable = false
         titleLabel.isBordered = false
         titleLabel.backgroundColor = .clear
@@ -40,16 +40,9 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
     func updateTitle(for date: Date, mode: ViewMode) {
         switch mode {
         case .day:
-            titleLabel.stringValue = date.formatted(as: "EEEE, MMMM d, yyyy")
+            titleLabel.stringValue = date.formatted(as: "MMM d, yyyy")
         case .week:
-            let cal = Calendar.current
-            let (start, end) = cal.weekRange(for: date)
-            let sameMonth = cal.component(.month, from: start) == cal.component(.month, from: end)
-            if sameMonth {
-                titleLabel.stringValue = "\(start.formatted(as: "MMM d")) – \(end.formatted(as: "d, yyyy"))"
-            } else {
-                titleLabel.stringValue = "\(start.formatted(as: "MMM d")) – \(end.formatted(as: "MMM d, yyyy"))"
-            }
+            titleLabel.stringValue = date.formatted(as: "MMMM yyyy")
         case .month:
             titleLabel.stringValue = date.formatted(as: "MMMM yyyy")
         }
@@ -82,11 +75,13 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
         titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
         viewSegment.target = self
         viewSegment.action = #selector(viewSegmentChanged(_:))
-        let stack = NSStackView(views: [back, forward, today, titleLabel, viewSegment])
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let stack = NSStackView(views: [titleLabel, spacer, viewSegment, today, back, forward])
         stack.orientation = .horizontal
         stack.spacing = 12
         stack.alignment = .centerY
-        stack.setCustomSpacing(24, after: today)
+        stack.setCustomSpacing(24, after: viewSegment)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -105,7 +100,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
     // MARK: - NSToolbarDelegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.backID, Self.forwardID, Self.todayID, .flexibleSpace, Self.titleID, .flexibleSpace, Self.viewSwitcherID]
+        [Self.titleID, .flexibleSpace, Self.viewSwitcherID, Self.todayID, Self.backID, Self.forwardID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {

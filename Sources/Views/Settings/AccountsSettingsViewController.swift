@@ -14,7 +14,7 @@ final class AccountsSettingsViewController: NSViewController {
     private var selectedAccount: Account?
 
     override func loadView() {
-        let container = NSView()
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 700, height: 500))
         container.wantsLayer = true
 
         splitView.translatesAutoresizingMaskIntoConstraints = false
