@@ -10,17 +10,19 @@ enum EventEditorWindow {
         let accounts = (try? AccountStore(db: db).all()) ?? []
         let defaultAccountId = accounts.first?.id ?? "demo"
 
-        var seedEvent = Event(accountId: defaultAccountId, calendarId: calendarId ?? calendars.first!.id,
-                              summary: "", start: startDate, end: endDate, allDay: allDay)
+        let defaultCalendarId = calendarId
+            ?? Preferences.shared.lastUsedCalendarId.flatMap { id in calendars.contains(where: { $0.id == id }) ? id : nil }
+            ?? calendars.first!.id
 
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "New Event"
 
-        let editorView = EventEditorView(event: nil, startDate: startDate, endDate: endDate, isAllDay: allDay, calendars: calendars, onSave: { data in
+        let editorView = EventEditorView(event: nil, startDate: startDate, endDate: endDate, isAllDay: allDay, calendars: calendars, accounts: accounts, initialCalendarId: defaultCalendarId, onSave: { data in
             let accountId = calendars.first(where: { $0.id == data.calendarId })
                 .flatMap({ acct in accounts.first(where: { $0.id == acct.accountId }) })?.id ?? defaultAccountId
             if EventActions.createEvent(data: data, accountId: accountId) {
+                Preferences.shared.lastUsedCalendarId = data.calendarId
                 panel.close()
             } else {
                 let alert = NSAlert()
@@ -41,12 +43,13 @@ enum EventEditorWindow {
     static func showEdit(event: Event, relativeTo window: NSWindow?) {
         let db = DatabaseManager.shared.pool
         let calendars = (try? CalendarStore(db: db).selected()) ?? []
+        let accounts = (try? AccountStore(db: db).all()) ?? []
 
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = "Edit Event"
 
-        let editorView = EventEditorView(event: event, calendars: calendars, onSave: { data in
+        let editorView = EventEditorView(event: event, calendars: calendars, accounts: accounts, onSave: { data in
             EventActions.updateEvent(event, data: data)
             panel.close()
         }, onCancel: {

@@ -73,6 +73,12 @@ enum Migrations {
             }
         }
 
+        migrator.registerMigration("v2_add_calendar_isPrimary") { db in
+            try db.alter(table: "calendar") { t in
+                t.add(column: "isPrimary", .boolean).notNull().defaults(to: false)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }

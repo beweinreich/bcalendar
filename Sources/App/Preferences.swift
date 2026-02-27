@@ -22,4 +22,9 @@ final class Preferences {
         get { Set(defaults.stringArray(forKey: "selectedCalendarIDs") ?? []) }
         set { defaults.set(Array(newValue), forKey: "selectedCalendarIDs") }
     }
+
+    var lastUsedCalendarId: String? {
+        get { defaults.string(forKey: "lastUsedCalendarId") }
+        set { defaults.set(newValue, forKey: "lastUsedCalendarId") }
+    }
 }

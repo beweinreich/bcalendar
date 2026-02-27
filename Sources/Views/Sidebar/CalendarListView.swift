@@ -130,6 +130,7 @@ class CalendarListView: NSView {
                         summary: item["summary"] as? String ?? "Untitled",
                         colorHex: item["backgroundColor"] as? String ?? "#4285F4",
                         accessRole: item["accessRole"] as? String ?? "reader",
+                        isPrimary: item["primary"] as? Bool ?? false,
                         timeZone: item["timeZone"] as? String
                     )
                     try calStore.save(cal)

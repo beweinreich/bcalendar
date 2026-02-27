@@ -22,6 +22,7 @@ struct CalendarListSync {
                 colorHex: item["backgroundColor"] as? String ?? "#4285F4",
                 accessRole: item["accessRole"] as? String ?? "reader",
                 selected: wasSelected,
+                isPrimary: item["primary"] as? Bool ?? false,
                 timeZone: item["timeZone"] as? String
             )
             try calendarStore.save(cal)

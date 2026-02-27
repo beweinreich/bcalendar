@@ -1,7 +1,7 @@
 import AppKit
 
 protocol DragControllerDelegate: AnyObject {
-    func dragDidCreateEvent(start: Date, end: Date, column: Int)
+    func dragDidCreateEvent(start: Date, end: Date, column: Int, anchorRect: NSRect, anchorView: NSView)
     func dragDidMoveEvent(eventId: String, newStart: Date, newEnd: Date)
     func dragDidResizeEvent(eventId: String, newEnd: Date)
 }
@@ -86,7 +86,8 @@ class DragController {
             let (s, e) = startDate < endDate ? (startDate, endDate) : (endDate, startDate)
             let finalEnd = e.timeIntervalSince(s) < 900 ? s.addingTimeInterval(900) : e
             let col = columnFromPoint(dragStartPoint, in: grid)
-            delegate?.dragDidCreateEvent(start: s, end: finalEnd, column: col)
+            let anchorRect = grid.rectForNewEvent(start: s, end: finalEnd, column: col)
+            delegate?.dragDidCreateEvent(start: s, end: finalEnd, column: col, anchorRect: anchorRect, anchorView: grid)
 
         case .move:
             guard let eventId = dragEventId,

@@ -97,6 +97,31 @@ class TimeGridView: NSView {
     let dragController = DragController()
     private(set) var eventRects: [(id: String, rect: NSRect)] = []
 
+    /// Rect for an event by id, in view coordinates. Use for popover anchor.
+    func rectForEvent(id: String) -> NSRect? {
+        eventRects.first(where: { $0.id == id })?.rect
+    }
+
+    /// Shown while the create-event popover is open. Cleared when user saves or cancels.
+    var pendingCreate: (start: Date, end: Date, column: Int)? { didSet { needsDisplay = true } }
+
+    /// Rect for a new event slot (start, end, column). Use for popover anchor when creating.
+    func rectForNewEvent(start: Date, end: Date, column: Int) -> NSRect {
+        let cal = Calendar.current
+        let startComps = cal.dateComponents([.hour, .minute], from: start)
+        let endComps = cal.dateComponents([.hour, .minute], from: end)
+        let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
+        let endY = bodyTopOffset + CGFloat(endComps.hour! * 60 + endComps.minute!) / 60.0 * hourHeight
+        let height = max(endY - startY - 2, hourHeight / 4)
+
+        let contentWidth = bounds.width - gutterWidth
+        let colWidth = contentWidth / CGFloat(numberOfColumns)
+        let x = gutterWidth + CGFloat(column) * colWidth + 2
+        let w = colWidth - 4
+
+        return NSRect(x: x, y: startY + 1, width: w, height: height)
+    }
+
     override var acceptsFirstResponder: Bool { return true }
 
     override func keyDown(with event: NSEvent) {
@@ -339,14 +364,14 @@ class TimeGridView: NSView {
             let isShortEvent = duration <= 15 * 60
             let textRect = rect.insetBy(dx: isShortEvent ? 8 : 10, dy: isShortEvent ? 1 : 6)
             title.draw(in: textRect)
-        } else if let tempEvent = dragController.getTemporaryCreateEvent() {
+        } else if let tempEvent = dragController.getTemporaryCreateEvent() ?? pendingCreate.map({ (start: $0.start, end: $0.end, column: $0.column) }) {
             let startComps = cal.dateComponents([.hour, .minute], from: tempEvent.start)
             let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
             let height = CGFloat(tempEvent.end.timeIntervalSince(tempEvent.start)) / 3600.0 * hourHeight
             let x = gutterWidth + CGFloat(tempEvent.column) * colWidth + 2
-            
+
             let rect = NSRect(x: x, y: startY + 1, width: colWidth - 4, height: max(height - 2, hourHeight / 4))
-            
+
             let tempBg = NSColor.systemBlue.pastel
             tempBg.setFill()
             NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8).fill()

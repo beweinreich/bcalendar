@@ -100,6 +100,14 @@ class CalendarContainerViewController: NSViewController {
 
     var onNavigate: (() -> Void)?
 
+    private var activeTimeGrid: TimeGridView? {
+        switch currentMode {
+        case .day: return dayVC.timeGrid
+        case .week: return weekVC.timeGrid
+        case .month: return nil
+        }
+    }
+
     @objc private func dataChanged() {
         dayVC.timeGrid.selectedEventId = nil
         weekVC.timeGrid.selectedEventId = nil
@@ -181,22 +189,29 @@ class CalendarContainerViewController: NSViewController {
 
     private func editEvent(event: Event) {
         guard !event.deletedFlag else { return }
+        guard let anchorView = activeTimeGrid,
+              let anchorRect = activeTimeGrid?.rectForEvent(id: event.id) else { return }
+
         if event.recurringEventId != nil || event.recurrence != nil {
-            EventEditorWindow.confirmRecurringAction(title: "Edit Recurring Event", window: view.window) { scope in
+            EventEditorWindow.confirmRecurringAction(title: "Edit Recurring Event", window: view.window) { [weak self] scope in
+                guard let self else { return }
+                let eventToEdit: Event
                 switch scope {
                 case .thisEvent, .thisAndFuture:
-                    EventEditorWindow.showEdit(event: event, relativeTo: self.view.window)
+                    eventToEdit = event
                 case .allEvents:
                     if let masterId = event.recurringEventId,
                        let master = try? EventStore(db: DatabaseManager.shared.pool).find(masterId) {
-                        EventEditorWindow.showEdit(event: master, relativeTo: self.view.window)
+                        eventToEdit = master
                     } else {
-                        EventEditorWindow.showEdit(event: event, relativeTo: self.view.window)
+                        eventToEdit = event
                     }
                 }
+                let rect = self.activeTimeGrid?.rectForEvent(id: eventToEdit.id) ?? anchorRect
+                EventEditorPopover.showEdit(event: eventToEdit, anchorRect: rect, in: anchorView) { }
             }
         } else {
-            EventEditorWindow.showEdit(event: event, relativeTo: view.window)
+            EventEditorPopover.showEdit(event: event, anchorRect: anchorRect, in: anchorView) { }
         }
     }
 
@@ -235,9 +250,13 @@ class CalendarContainerViewController: NSViewController {
 }
 
 extension CalendarContainerViewController: DragControllerDelegate {
-    func dragDidCreateEvent(start: Date, end: Date, column: Int) {
-        EventEditorWindow.showCreate(startDate: start, endDate: end, allDay: false,
-                                      calendarId: nil, relativeTo: view.window)
+    func dragDidCreateEvent(start: Date, end: Date, column: Int, anchorRect: NSRect, anchorView: NSView) {
+        guard let grid = anchorView as? TimeGridView else { return }
+        grid.pendingCreate = (start, end, column)
+        EventEditorPopover.showCreate(startDate: start, endDate: end, allDay: false,
+                                      calendarId: nil as String?, anchorRect: anchorRect, in: anchorView) {
+            grid.pendingCreate = nil
+        }
     }
 
     func dragDidMoveEvent(eventId: String, newStart: Date, newEnd: Date) {

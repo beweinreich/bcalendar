@@ -10,6 +10,7 @@ struct GCalendar: Codable, FetchableRecord, PersistableRecord, Identifiable {
     var colorHex: String
     var accessRole: String
     var selected: Bool
+    var isPrimary: Bool
     var syncToken: String?
     var timeZone: String?
     var updatedAt: Date
@@ -19,13 +20,14 @@ struct GCalendar: Codable, FetchableRecord, PersistableRecord, Identifiable {
     }
 
     init(id: String, accountId: String, summary: String, colorHex: String = "#4285F4",
-         accessRole: String = "owner", selected: Bool = true, timeZone: String? = nil) {
+         accessRole: String = "owner", selected: Bool = true,          isPrimary: Bool = false, timeZone: String? = nil) {
         self.id = id
         self.accountId = accountId
         self.summary = summary
         self.colorHex = colorHex
         self.accessRole = accessRole
         self.selected = selected
+        self.isPrimary = isPrimary
         self.timeZone = timeZone
         self.updatedAt = Date()
     }

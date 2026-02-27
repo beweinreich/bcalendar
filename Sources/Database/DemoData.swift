@@ -12,7 +12,7 @@ enum DemoData {
         let account = Account(id: "demo", email: "demo@example.com", displayName: "Demo Account")
         try? accountStore.save(account)
 
-        let workCal = GCalendar(id: "work", accountId: "demo", summary: "Work", colorHex: "#4285F4")
+        let workCal = GCalendar(id: "work", accountId: "demo", summary: "Work", colorHex: "#4285F4", isPrimary: true)
         let personalCal = GCalendar(id: "personal", accountId: "demo", summary: "Personal", colorHex: "#34A853")
         try? calendarStore.save(workCal)
         try? calendarStore.save(personalCal)

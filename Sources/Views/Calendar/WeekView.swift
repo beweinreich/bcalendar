@@ -181,9 +181,9 @@ class WeekViewController: NSViewController {
         gutterOverlay.headerHeight = timeGrid.headerHeight
         gutterOverlay.hourHeight = timeGrid.hourHeight
 
-        containerView.addSubview(headerClipView)
         containerView.addSubview(scrollView)
         containerView.addSubview(gutterOverlay)
+        containerView.addSubview(headerClipView)
 
         view = containerView
 
@@ -270,9 +270,16 @@ class WeekViewController: NSViewController {
         syncHeaderWithScroll()
     }
 
+    /// Offset so we show columns 2-8 (one day before currentDate) instead of 3-9.
+    /// This keeps events visible when scrolling forward one day.
+    private var scrollCenterOffset: CGFloat {
+        let dayWidth = (containerView.bounds.width - gutterWidth) / 7.0
+        return CGFloat(bufferDays - 1) * dayWidth
+    }
+
     private func scrollToCenter() {
         let dayWidth = (containerView.bounds.width - gutterWidth) / 7.0
-        let centerX = CGFloat(bufferDays) * dayWidth
+        let centerX = scrollCenterOffset
         let currentY = scrollView.contentView.bounds.origin.y
         scrollView.contentView.scroll(to: NSPoint(x: centerX, y: currentY))
         scrollView.reflectScrolledClipView(scrollView.contentView)
@@ -280,8 +287,7 @@ class WeekViewController: NSViewController {
     }
 
     private func scrollToCurrentTime() {
-        let dayWidth = (containerView.bounds.width - gutterWidth) / 7.0
-        let centerX = CGFloat(bufferDays) * dayWidth
+        let centerX = scrollCenterOffset
         let y = 8 * timeGrid.hourHeight
         scrollView.contentView.scroll(to: NSPoint(x: centerX, y: y))
         scrollView.reflectScrolledClipView(scrollView.contentView)
@@ -299,17 +305,31 @@ class WeekViewController: NSViewController {
     private func snapToNearestDay() {
         let dayWidth = (containerView.bounds.width - gutterWidth) / 7.0
         let currentX = scrollView.contentView.bounds.origin.x
-        let centerX = CGFloat(bufferDays) * dayWidth
+        let centerX = scrollCenterOffset
 
         let offsetFromCenter = currentX - centerX
         let daysFromCenter = Int(round(offsetFromCenter / dayWidth))
         let clampedDays = max(-bufferDays, min(bufferDays, daysFromCenter))
 
         if clampedDays != 0 {
-            onNavigateByDays?(clampedDays)
+            // Animate to target day within current content first, then update.
+            // This avoids a jump: updating content first would show the wrong day at the preserved scroll position.
+            let targetX = centerX + CGFloat(clampedDays) * dayWidth
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.3
+                var newBounds = self.scrollView.contentView.bounds
+                newBounds.origin.x = targetX
+                self.scrollView.contentView.animator().bounds = newBounds
+
+                var hBounds = self.headerClipView.bounds
+                hBounds.origin.x = targetX
+                self.headerClipView.animator().bounds = hBounds
+            }, completionHandler: { [weak self] in
+                self?.onNavigateByDays?(clampedDays)
+            })
         } else {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
+                ctx.duration = 0.3
                 var newBounds = self.scrollView.contentView.bounds
                 newBounds.origin.x = centerX
                 self.scrollView.contentView.animator().bounds = newBounds

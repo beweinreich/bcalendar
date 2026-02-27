@@ -13,24 +13,29 @@ struct EventEditorView: View {
     @State var attendees: [Attendee]
 
     let calendars: [GCalendar]
+    let accounts: [Account]
     let isNewEvent: Bool
     let onSave: (EventEditorData) -> Void
     let onCancel: () -> Void
 
-    init(event: Event? = nil, startDate: Date? = nil, endDate: Date? = nil, isAllDay: Bool? = nil, calendars: [GCalendar], onSave: @escaping (EventEditorData) -> Void, onCancel: @escaping () -> Void) {
+    init(event: Event? = nil, startDate: Date? = nil, endDate: Date? = nil, isAllDay: Bool? = nil, calendars: [GCalendar], accounts: [Account], initialCalendarId: String? = nil, onSave: @escaping (EventEditorData) -> Void, onCancel: @escaping () -> Void) {
         self.calendars = calendars
+        self.accounts = accounts
         self.isNewEvent = event == nil
         self.onSave = onSave
         self.onCancel = onCancel
 
         let e = event
+        let defaultCalendarId = e?.calendarId
+            ?? initialCalendarId.flatMap { id in calendars.contains(where: { $0.id == id }) ? id : nil }
+            ?? calendars.first?.id ?? ""
         _title = State(initialValue: e?.summary ?? "")
         _location = State(initialValue: e?.location ?? "")
         _notes = State(initialValue: e?.eventDescription ?? "")
         _startDate = State(initialValue: e?.start ?? startDate ?? Date())
         _endDate = State(initialValue: e?.end ?? endDate ?? Date().addingTimeInterval(3600))
         _isAllDay = State(initialValue: e?.allDay ?? isAllDay ?? false)
-        _selectedCalendarId = State(initialValue: e?.calendarId ?? calendars.first?.id ?? "")
+        _selectedCalendarId = State(initialValue: defaultCalendarId)
         _recurrenceRule = State(initialValue: e?.recurrence ?? "")
         _reminderMinutes = State(initialValue: 10)
         _attendees = State(initialValue: AttendeeHelper.parse(json: e?.attendeesJSON))
@@ -58,15 +63,10 @@ struct EventEditorView: View {
             TextField("Notes", text: $notes, axis: .vertical)
                 .lineLimit(3...6)
 
-            Picker("Calendar", selection: $selectedCalendarId) {
-                ForEach(calendars, id: \.id) { cal in
-                    HStack {
-                        Circle()
-                            .fill(Color(GoogleColorMap.color(for: cal.colorHex)))
-                            .frame(width: 8, height: 8)
-                        Text(cal.summary)
-                    }.tag(cal.id)
-                }
+            HStack {
+                Text("Calendar")
+                Spacer()
+                CalendarPickerView(accounts: accounts, calendars: calendars, selectedCalendarId: $selectedCalendarId)
             }
 
             RecurrenceEditorView(rule: $recurrenceRule)

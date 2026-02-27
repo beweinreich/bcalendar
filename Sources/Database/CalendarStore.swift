@@ -8,9 +8,10 @@ struct CalendarStore {
     }
 
     func forAccount(_ accountId: String) throws -> [GCalendar] {
-        try db.read { db in
+        let cals = try db.read { db in
             try GCalendar.filter(Column("accountId") == accountId).fetchAll(db)
         }
+        return cals.sorted { $0.isPrimary && !$1.isPrimary }
     }
 
     func selected() throws -> [GCalendar] {
