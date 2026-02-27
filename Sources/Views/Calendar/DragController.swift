@@ -128,6 +128,7 @@ class DragController {
         let dy = dragCurrentPoint.y - dragStartPoint.y
         let dtSeconds = TimeInterval(dy / grid.hourHeight * 3600)
         let roundedDt = (dtSeconds / 900).rounded() * 900
+        guard roundedDt != 0 else { return nil }
         let newStart = origStart.addingTimeInterval(roundedDt)
         let newEnd = origEnd.addingTimeInterval(roundedDt)
         let weekStart = grid.weekStartDate()
