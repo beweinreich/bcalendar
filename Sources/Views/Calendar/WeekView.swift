@@ -70,8 +70,8 @@ class SwipeableScrollView: NSScrollView {
 // MARK: - Week View
 
 class GutterOverlayView: NSView {
-    var headerHeight: CGFloat = 50
-    var hourHeight: CGFloat = 60
+    var headerHeight: CGFloat = 54
+    var hourHeight: CGFloat = 66
     var verticalScrollOffset: CGFloat = 0 { didSet { needsDisplay = true } }
 
     override var isFlipped: Bool { true }
@@ -80,7 +80,7 @@ class GutterOverlayView: NSView {
         NSColor.controlBackgroundColor.setFill()
         bounds.fill()
 
-        NSColor(white: 230/255, alpha: 1).setStroke()
+        NSColor.separatorColor.withAlphaComponent(0.25).setStroke()
         NSBezierPath.strokeLine(from: NSPoint(x: 0, y: headerHeight),
                                 to: NSPoint(x: bounds.width, y: headerHeight))
 

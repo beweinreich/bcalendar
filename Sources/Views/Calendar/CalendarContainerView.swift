@@ -1,5 +1,13 @@
 import AppKit
 
+private class ToolbarBarView: NSView {
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = (isDark ? NSColor.windowBackgroundColor : NSColor.controlBackgroundColor).cgColor
+    }
+}
+
 class CalendarContainerViewController: NSViewController {
     private(set) var currentMode: ViewMode = .month
     private(set) var currentDate: Date = Date()
@@ -22,9 +30,8 @@ class CalendarContainerViewController: NSViewController {
         view = NSView()
         view.wantsLayer = true
 
-        toolbarBar = NSView()
+        toolbarBar = ToolbarBarView()
         toolbarBar.wantsLayer = true
-        toolbarBar.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         toolbarBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(toolbarBar)
 
@@ -65,7 +72,7 @@ class CalendarContainerViewController: NSViewController {
             toolView.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
             toolView.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
         ])
-        toolbarHeightConstraint.constant = 52
+        toolbarHeightConstraint.constant = 56
     }
 
     private func setupDragHandlers() {

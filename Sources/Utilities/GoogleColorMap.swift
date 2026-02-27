@@ -30,4 +30,14 @@ extension NSColor {
                   green: CGFloat((val >> 8) & 0xFF) / 255,
                   blue: CGFloat(val & 0xFF) / 255, alpha: 1)
     }
+
+    /// Soft pastel variant — alpha-based so it adapts to light and dark backgrounds.
+    var pastel: NSColor {
+        withAlphaComponent(0.18)
+    }
+
+    /// Slightly stronger pastel for selected states.
+    var pastelSelected: NSColor {
+        withAlphaComponent(0.30)
+    }
 }

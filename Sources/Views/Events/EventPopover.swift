@@ -54,9 +54,9 @@ struct EventPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(height: 4)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(0.25))
+                .frame(height: 5)
 
             Text(event.summary)
                 .font(.title3.bold())
@@ -89,7 +89,7 @@ struct EventPopoverView: View {
                 Button("Delete", role: .destructive, action: onDelete)
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(width: 300)
     }
 

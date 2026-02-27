@@ -1,5 +1,72 @@
 import AppKit
 
+// MARK: - Pill Segmented Control
+
+class PillSegmentedControl: NSView {
+    private let labels: [String]
+    private(set) var selectedIndex: Int = 0
+    var onSelectionChanged: ((Int) -> Void)?
+
+    init(labels: [String]) {
+        self.labels = labels
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: CGFloat(labels.count) * 56 + 8, height: 30)
+    }
+
+    func setSelected(_ index: Int) {
+        guard index >= 0, index < labels.count else { return }
+        selectedIndex = index
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bgPath = NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2)
+        NSColor.quaternaryLabelColor.setFill()
+        bgPath.fill()
+
+        let inset: CGFloat = 3
+        let segWidth = (bounds.width - inset * 2) / CGFloat(labels.count)
+
+        for (i, label) in labels.enumerated() {
+            let segRect = NSRect(x: inset + CGFloat(i) * segWidth, y: inset,
+                                 width: segWidth, height: bounds.height - inset * 2)
+
+            if i == selectedIndex {
+                let selPath = NSBezierPath(roundedRect: segRect, xRadius: 7, yRadius: 7)
+                NSColor.systemBlue.setFill()
+                selPath.fill()
+            }
+
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: i == selectedIndex ? NSColor.white : NSColor.secondaryLabelColor
+            ]
+            let str = NSAttributedString(string: label, attributes: attrs)
+            let sz = str.size()
+            str.draw(at: NSPoint(x: segRect.midX - sz.width / 2, y: segRect.midY - sz.height / 2))
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let pt = convert(event.locationInWindow, from: nil)
+        let inset: CGFloat = 3
+        let segWidth = (bounds.width - inset * 2) / CGFloat(labels.count)
+        let index = Int((pt.x - inset) / segWidth)
+        if index >= 0, index < labels.count, index != selectedIndex {
+            selectedIndex = index
+            needsDisplay = true
+            onSelectionChanged?(index)
+        }
+    }
+}
+
+// MARK: - Toolbar
+
 class CalendarToolbar: NSObject, NSToolbarDelegate {
     let toolbar: NSToolbar
     var onNavigateBack: (() -> Void)?
@@ -8,7 +75,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
     var onViewModeChanged: ((ViewMode) -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "")
-    private let viewSegment: NSSegmentedControl
+    private let pillSegment: PillSegmentedControl
 
     private static let backID = NSToolbarItem.Identifier("back")
     private static let forwardID = NSToolbarItem.Identifier("forward")
@@ -18,19 +85,20 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
 
     override init() {
         toolbar = NSToolbar(identifier: "CalendarToolbar")
-        viewSegment = NSSegmentedControl(labels: ["Day", "Week", "Month"],
-                                         trackingMode: .selectOne,
-                                         target: nil, action: nil)
+        pillSegment = PillSegmentedControl(labels: ["Day", "Week", "Month"])
         super.init()
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = false
 
-        viewSegment.target = self
-        viewSegment.action = #selector(viewSegmentChanged(_:))
-        viewSegment.selectedSegment = 2
+        pillSegment.setSelected(2)
+        pillSegment.onSelectionChanged = { [weak self] index in
+            if let mode = ViewMode(rawValue: index) {
+                self?.onViewModeChanged?(mode)
+            }
+        }
 
-        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 22, weight: .medium)
         titleLabel.alignment = .left
         titleLabel.isEditable = false
         titleLabel.isBordered = false
@@ -49,39 +117,39 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
     }
 
     func updateViewMode(_ mode: ViewMode) {
-        viewSegment.selectedSegment = mode.rawValue
-    }
-
-    @objc private func viewSegmentChanged(_ sender: NSSegmentedControl) {
-        if let mode = ViewMode(rawValue: sender.selectedSegment) {
-            onViewModeChanged?(mode)
-        }
+        pillSegment.setSelected(mode.rawValue)
     }
 
     @objc private func backClicked() { onNavigateBack?() }
     @objc private func forwardClicked() { onNavigateForward?() }
     @objc private func todayClicked() { onToday?() }
 
-    /// Returns a view with the same controls for embedding in the content area (toolbar only over main content).
     func makeEmbeddedView() -> NSView {
         let back = NSButton(image: NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")!,
                             target: self, action: #selector(backClicked))
         back.bezelStyle = .regularSquare
+        back.isBordered = false
         let forward = NSButton(image: NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")!,
                                target: self, action: #selector(forwardClicked))
         forward.bezelStyle = .regularSquare
+        forward.isBordered = false
         let today = NSButton(title: "Today", target: self, action: #selector(todayClicked))
         today.bezelStyle = .rounded
-        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
-        viewSegment.target = self
-        viewSegment.action = #selector(viewSegmentChanged(_:))
+        titleLabel.font = .systemFont(ofSize: 22, weight: .medium)
+
+        pillSegment.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            pillSegment.widthAnchor.constraint(equalToConstant: pillSegment.intrinsicContentSize.width),
+            pillSegment.heightAnchor.constraint(equalToConstant: 30),
+        ])
+
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let stack = NSStackView(views: [titleLabel, spacer, viewSegment, today, back, forward])
+        let stack = NSStackView(views: [titleLabel, spacer, pillSegment, today, back, forward])
         stack.orientation = .horizontal
         stack.spacing = 12
         stack.alignment = .centerY
-        stack.setCustomSpacing(24, after: viewSegment)
+        stack.setCustomSpacing(24, after: pillSegment)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -92,7 +160,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
             stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: 52),
+            container.heightAnchor.constraint(equalToConstant: 56),
         ])
         return container
     }
@@ -132,7 +200,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
             item.minSize = NSSize(width: 200, height: 24)
             item.maxSize = NSSize(width: 400, height: 24)
         case Self.viewSwitcherID:
-            item.view = viewSegment
+            item.view = pillSegment
             item.label = "View"
         default:
             return nil

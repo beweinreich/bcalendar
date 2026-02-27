@@ -148,25 +148,10 @@ class DragController {
     enum HitZone { case body, bottom }
 
     func hitTestEvent(at point: NSPoint, in grid: TimeGridView) -> (String, HitZone)? {
-        for (_, dayEvents) in grid.events {
-            for event in dayEvents where !event.isAllDay {
-                let cal = Calendar.current
-                let startComps = cal.dateComponents([.hour, .minute], from: event.start)
-                let endComps = cal.dateComponents([.hour, .minute], from: event.end)
-                let startY = grid.bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * grid.hourHeight
-                let endY = grid.bodyTopOffset + CGFloat(endComps.hour! * 60 + endComps.minute!) / 60.0 * grid.hourHeight
-
-                let weekStart = grid.weekStartDate()
-                let dayOffset = cal.dateComponents([.day], from: weekStart, to: event.start).day ?? 0
-                let contentWidth = grid.bounds.width - grid.gutterWidth
-                let colWidth = contentWidth / CGFloat(grid.numberOfColumns)
-                let x = grid.gutterWidth + CGFloat(dayOffset) * colWidth
-
-                let rect = NSRect(x: x, y: startY, width: colWidth, height: max(endY - startY, 15))
-                if rect.contains(point) {
-                    let isBottom = point.y > rect.maxY - 6
-                    return (event.id, isBottom ? .bottom : .body)
-                }
+        for (id, rect) in grid.eventRects.reversed() {
+            if rect.contains(point) {
+                let isBottom = point.y > rect.maxY - 6
+                return (id, isBottom ? .bottom : .body)
             }
         }
         return nil

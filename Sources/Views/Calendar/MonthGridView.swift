@@ -39,7 +39,7 @@ class MonthGridView: NSView {
 
     private let cal = Calendar.current
     private let dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    private let headerHeight: CGFloat = 30
+    private let headerHeight: CGFloat = 32
 
     override var isFlipped: Bool { true }
 
@@ -62,8 +62,9 @@ class MonthGridView: NSView {
 
     private func drawDayHeaders(cellWidth: CGFloat) {
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.secondaryLabelColor
+            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .kern: 0.4
         ]
         for (i, name) in dayNames.enumerated() {
             let s = NSAttributedString(string: name, attributes: attrs)
@@ -74,12 +75,13 @@ class MonthGridView: NSView {
     }
 
     private func drawGrid(rows: Int, cellWidth: CGFloat, cellHeight: CGFloat) {
-        NSColor(white: 230/255, alpha: 1).setStroke()
+        NSColor.separatorColor.withAlphaComponent(0.07).setStroke()
         for col in 0...7 {
             let x = CGFloat(col) * cellWidth
             NSBezierPath.strokeLine(from: NSPoint(x: x, y: headerHeight),
                                     to: NSPoint(x: x, y: bounds.height))
         }
+        NSColor.separatorColor.withAlphaComponent(0.12).setStroke()
         for row in 0...rows {
             let y = headerHeight + CGFloat(row) * cellHeight
             NSBezierPath.strokeLine(from: NSPoint(x: 0, y: y),
@@ -121,21 +123,22 @@ class MonthGridView: NSView {
             let offset = startWeekday - 1 + dayIndex
             let col = offset % 7
             let row = offset / 7
-            let x = CGFloat(col) * cellWidth + 2
-            let baseY = headerHeight + CGFloat(row) * cellHeight + 28
+            let x = CGFloat(col) * cellWidth + 3
+            let baseY = headerHeight + CGFloat(row) * cellHeight + 30
 
             for (i, event) in dayEvents.prefix(3).enumerated() {
-                let pillY = baseY + CGFloat(i) * 16
-                let pillRect = NSRect(x: x, y: pillY, width: cellWidth - 4, height: 14)
-                event.color.withAlphaComponent(0.2).setFill()
-                NSBezierPath(roundedRect: pillRect, xRadius: 3, yRadius: 3).fill()
+                let pillY = baseY + CGFloat(i) * 18
+                let pillRect = NSRect(x: x, y: pillY, width: cellWidth - 6, height: 15)
+                event.color.pastel.setFill()
+                NSBezierPath(roundedRect: pillRect, xRadius: 7.5, yRadius: 7.5).fill()
 
+                let titleColor = event.color
                 let attrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 10),
-                    .foregroundColor: event.color
+                    .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                    .foregroundColor: titleColor
                 ]
                 NSAttributedString(string: event.title, attributes: attrs)
-                    .draw(in: pillRect.insetBy(dx: 4, dy: 1))
+                    .draw(in: pillRect.insetBy(dx: 7, dy: 1))
             }
         }
     }

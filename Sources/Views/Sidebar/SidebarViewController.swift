@@ -1,21 +1,28 @@
 import AppKit
 
+private class SidebarContainerView: NSView {
+    private static let darkSidebarGray = NSColor(red: 0x35/255, green: 0x35/255, blue: 0x35/255, alpha: 1)
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = (isDark ? Self.darkSidebarGray : NSColor.windowBackgroundColor).cgColor
+    }
+}
+
 class SidebarViewController: NSViewController {
     let miniMonth = MiniMonthView()
     private let calendarList = CalendarListView()
     var onDateSelected: ((Date) -> Void)?
 
     override func loadView() {
-        let container = NSView()
+        let container = SidebarContainerView()
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        // Calendars at top (scrollable), month view fixed at bottom
         let stack = NSStackView(views: [calendarList, miniMonth])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 12
-        stack.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        stack.spacing = 20
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 14, bottom: 14, right: 14)
         stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(stack)
@@ -29,9 +36,9 @@ class SidebarViewController: NSViewController {
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
-            miniMonth.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24),
-            miniMonth.heightAnchor.constraint(equalToConstant: 190),
-            calendarList.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24),
+            miniMonth.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28),
+            miniMonth.heightAnchor.constraint(equalToConstant: 172),
+            calendarList.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28),
         ])
 
         view = container

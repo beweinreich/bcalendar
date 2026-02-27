@@ -35,8 +35,10 @@ class CalendarListView: NSView {
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.indentationPerLevel = 0
+        outlineView.backgroundColor = .clear
 
         scrollView.documentView = outlineView
+        scrollView.contentView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -156,8 +158,8 @@ extension CalendarListView: NSOutlineViewDataSource {
 
 extension CalendarListView: NSOutlineViewDelegate {
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        if accounts.contains(where: { $0.id == item as? String }) { return 38 }
-        return 24
+        if accounts.contains(where: { $0.id == item as? String }) { return 42 }
+        return 28
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
@@ -169,14 +171,15 @@ extension CalendarListView: NSOutlineViewDelegate {
         if let account = accounts.first(where: { $0.id == id }) {
             let cell = NSTableCellView()
             let label = NSTextField(labelWithString: account.email)
-            label.font = .systemFont(ofSize: 12, weight: .semibold)
+            label.font = .systemFont(ofSize: 12, weight: .medium)
+            label.textColor = .secondaryLabelColor
             label.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(label)
 
             let isExpanded = outlineView.isItemExpanded(id)
             let caret = NSImageView(image: NSImage(systemSymbolName: isExpanded ? "chevron.down" : "chevron.right", accessibilityDescription: nil)!)
             caret.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-            caret.contentTintColor = .secondaryLabelColor
+            caret.contentTintColor = .tertiaryLabelColor
             caret.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(caret)
 
@@ -191,7 +194,7 @@ extension CalendarListView: NSOutlineViewDelegate {
 
             NSLayoutConstraint.activate([
                 label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-                label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 14),
+                label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 18),
                 caret.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                 caret.centerYAnchor.constraint(equalTo: label.centerYAnchor),
                 hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
@@ -206,23 +209,27 @@ extension CalendarListView: NSOutlineViewDelegate {
         guard let cal = allCalendars.first(where: { $0.id == id }) else { return nil }
 
         let cell = NSTableCellView()
+        let calColor = GoogleColorMap.color(for: cal.colorHex)
 
         let colorBox = NSView()
         colorBox.wantsLayer = true
-        colorBox.layer?.backgroundColor = GoogleColorMap.color(for: cal.colorHex).cgColor
-        colorBox.layer?.cornerRadius = 4
+        colorBox.layer?.backgroundColor = calColor.cgColor
+        colorBox.layer?.cornerRadius = 8
+        colorBox.layer?.borderWidth = 1
+        colorBox.layer?.borderColor = calColor.blended(withFraction: 0.1, of: .black)?.cgColor
         colorBox.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(colorBox)
 
         let checkmark = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)!)
-        checkmark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .bold)
+        checkmark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 9, weight: .bold)
         checkmark.contentTintColor = .white
         checkmark.translatesAutoresizingMaskIntoConstraints = false
         checkmark.isHidden = !cal.selected
         cell.addSubview(checkmark)
 
         let label = NSTextField(labelWithString: cal.summary)
-        label.font = .systemFont(ofSize: 12)
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = .secondaryLabelColor
         label.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(label)
 
@@ -251,11 +258,11 @@ extension CalendarListView: NSOutlineViewDelegate {
         NSLayoutConstraint.activate([
             colorBox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
             colorBox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            colorBox.widthAnchor.constraint(equalToConstant: 18),
-            colorBox.heightAnchor.constraint(equalToConstant: 18),
+            colorBox.widthAnchor.constraint(equalToConstant: 20),
+            colorBox.heightAnchor.constraint(equalToConstant: 20),
             checkmark.centerXAnchor.constraint(equalTo: colorBox.centerXAnchor),
             checkmark.centerYAnchor.constraint(equalTo: colorBox.centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: colorBox.trailingAnchor, constant: 6),
+            label.leadingAnchor.constraint(equalTo: colorBox.trailingAnchor, constant: 8),
             label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
             hitButton.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
@@ -266,4 +273,3 @@ extension CalendarListView: NSOutlineViewDelegate {
         return cell
     }
 }
-
