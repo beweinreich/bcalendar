@@ -76,6 +76,7 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
 
     private let titleLabel = NSTextField(labelWithString: "")
     private let pillSegment: PillSegmentedControl
+    private let activityIndicator = NSProgressIndicator()
 
     private static let backID = NSToolbarItem.Identifier("back")
     private static let forwardID = NSToolbarItem.Identifier("forward")
@@ -103,6 +104,24 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
         titleLabel.isEditable = false
         titleLabel.isBordered = false
         titleLabel.backgroundColor = .clear
+
+        activityIndicator.style = .spinning
+        activityIndicator.controlSize = .small
+        activityIndicator.isDisplayedWhenStopped = false
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(apiActivityChanged),
+            name: .apiActivityChanged, object: nil
+        )
+    }
+
+    @objc private func apiActivityChanged(_ notification: Notification) {
+        let active = (notification.userInfo?["active"] as? Bool) ?? false
+        if active {
+            activityIndicator.startAnimation(nil)
+        } else {
+            activityIndicator.stopAnimation(nil)
+        }
     }
 
     func updateTitle(for date: Date, mode: ViewMode) {
@@ -143,12 +162,19 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
             pillSegment.heightAnchor.constraint(equalToConstant: 30),
         ])
 
+        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            activityIndicator.widthAnchor.constraint(equalToConstant: 16),
+            activityIndicator.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let stack = NSStackView(views: [titleLabel, spacer, pillSegment, today, back, forward])
+        let stack = NSStackView(views: [titleLabel, spacer, activityIndicator, pillSegment, today, back, forward])
         stack.orientation = .horizontal
         stack.spacing = 12
         stack.alignment = .centerY
+        stack.setCustomSpacing(8, after: activityIndicator)
         stack.setCustomSpacing(24, after: pillSegment)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -162,6 +188,9 @@ class CalendarToolbar: NSObject, NSToolbarDelegate {
             stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             container.heightAnchor.constraint(equalToConstant: 56),
         ])
+        if APIActivityTracker.shared.isActive {
+            activityIndicator.startAnimation(nil)
+        }
         return container
     }
 

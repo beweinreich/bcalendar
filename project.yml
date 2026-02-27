@@ -25,6 +25,7 @@ targets:
         PRODUCT_NAME: BCalendar
     dependencies:
       - package: GRDB
+      - sdk: Network.framework
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift

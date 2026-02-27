@@ -3,6 +3,8 @@ import AppKit
 final class SettingsViewController: NSViewController {
     private let tabView = NSTabView()
     private let accountsVC = AccountsSettingsViewController()
+    private let apiLogVC = APIRequestLogViewController()
+    private let offlineQueueVC = OfflineQueueViewController()
 
     override func loadView() {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 700, height: 500))
@@ -27,10 +29,15 @@ final class SettingsViewController: NSViewController {
         alertsItem.view = placeholderView(title: "Alerts")
         tabView.addTabViewItem(alertsItem)
 
-        let advancedItem = NSTabViewItem(identifier: "advanced")
-        advancedItem.label = "Advanced"
-        advancedItem.view = placeholderView(title: "Advanced")
-        tabView.addTabViewItem(advancedItem)
+        let apiLogItem = NSTabViewItem(identifier: "apiLog")
+        apiLogItem.label = "API Log"
+        apiLogItem.viewController = apiLogVC
+        tabView.addTabViewItem(apiLogItem)
+
+        let offlineQueueItem = NSTabViewItem(identifier: "offlineQueue")
+        offlineQueueItem.label = "Offline Queue"
+        offlineQueueItem.viewController = offlineQueueVC
+        tabView.addTabViewItem(offlineQueueItem)
 
         tabView.selectTabViewItem(accountsItem)
         container.addSubview(tabView)

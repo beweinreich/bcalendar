@@ -148,6 +148,7 @@ class DirectionLockedScrollView: NSScrollView {
 
 class WeekViewController: NSViewController {
     private let containerView = NSView()
+    private let headerClipView = NSClipView()
     private let headerView = TimeGridHeaderView()
     private let scrollView = DirectionLockedScrollView()
     let timeGrid = TimeGridView()
@@ -166,6 +167,8 @@ class WeekViewController: NSViewController {
 
         headerView.wantsLayer = true
         headerView.usesCustomStartDate = true
+        headerClipView.drawsBackground = false
+        headerClipView.documentView = headerView
 
         timeGrid.bodyOnly = true
         timeGrid.usesCustomStartDate = true
@@ -178,7 +181,7 @@ class WeekViewController: NSViewController {
         gutterOverlay.headerHeight = timeGrid.headerHeight
         gutterOverlay.hourHeight = timeGrid.hourHeight
 
-        containerView.addSubview(headerView)
+        containerView.addSubview(headerClipView)
         containerView.addSubview(scrollView)
         containerView.addSubview(gutterOverlay)
 
@@ -205,8 +208,7 @@ class WeekViewController: NSViewController {
     }
 
     private func syncHeaderWithScroll() {
-        let scrollH = containerView.bounds.height - timeGrid.headerHeight
-        headerView.frame.origin = NSPoint(x: -scrollView.contentView.bounds.origin.x, y: scrollH)
+        headerClipView.setBoundsOrigin(NSPoint(x: scrollView.contentView.bounds.origin.x, y: 0))
     }
 
     override func viewDidAppear() {
@@ -256,7 +258,8 @@ class WeekViewController: NSViewController {
         let headerH = timeGrid.headerHeight
         let scrollH = visibleHeight - headerH
 
-        headerView.frame = NSRect(x: 0, y: scrollH, width: totalWidth, height: headerH)
+        headerClipView.frame = NSRect(x: 0, y: scrollH, width: visibleWidth, height: headerH)
+        headerView.frame = NSRect(x: 0, y: 0, width: totalWidth, height: headerH)
         scrollView.frame = NSRect(x: 0, y: 0, width: visibleWidth, height: scrollH)
         timeGrid.frame = NSRect(x: 0, y: 0, width: totalWidth, height: timeGrid.totalHeight)
         gutterOverlay.frame = NSRect(x: 0, y: 0, width: gutterWidth, height: visibleHeight)
@@ -264,6 +267,7 @@ class WeekViewController: NSViewController {
         timeGrid.needsDisplay = true
         headerView.needsDisplay = true
         gutterOverlay.needsDisplay = true
+        syncHeaderWithScroll()
     }
 
     private func scrollToCenter() {
@@ -304,15 +308,16 @@ class WeekViewController: NSViewController {
         if clampedDays != 0 {
             onNavigateByDays?(clampedDays)
         } else {
-            let currentY = scrollView.contentView.bounds.origin.y
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.2
                 var newBounds = self.scrollView.contentView.bounds
                 newBounds.origin.x = centerX
                 self.scrollView.contentView.animator().bounds = newBounds
+
+                var hBounds = self.headerClipView.bounds
+                hBounds.origin.x = centerX
+                self.headerClipView.animator().bounds = hBounds
             }
-            let scrollH = self.containerView.bounds.height - self.timeGrid.headerHeight
-            headerView.animator().setFrameOrigin(NSPoint(x: -centerX, y: scrollH))
         }
     }
 }

@@ -40,6 +40,11 @@ class MainWindowController: NSWindowController {
 
         window.setFrameAutosaveName("MainWindow")
 
+        // Default sidebar width 240px (autosave will override after user resizes)
+        DispatchQueue.main.async {
+            self.splitVC.splitView.setPosition(240, ofDividerAt: 0)
+        }
+
         sidebarVC.onDateSelected = { [weak self] date in
             self?.containerVC.navigateTo(date: date)
         }

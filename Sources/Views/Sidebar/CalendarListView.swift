@@ -1,13 +1,52 @@
 import AppKit
 
+private class HoverableCalendarCell: NSView {
+    var isHovered = false {
+        didSet { needsDisplay = true }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+    required init?(coder: NSCoder) { super.init(coder: coder); wantsLayer = true }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.cornerRadius = 8
+        layer?.backgroundColor = isHovered ? hoverColor.cgColor : NSColor.clear.cgColor
+    }
+
+    private var hoverColor: NSColor {
+        let base = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.white : NSColor.black
+        return base.withAlphaComponent(0.2)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self, userInfo: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+}
+
 private class NoDisclosureOutlineView: NSOutlineView {
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
+    override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
+        var rect = super.frameOfCell(atColumn: column, row: row)
+        let inset: CGFloat = 8
+        rect.origin.x = inset
+        rect.size.width = bounds.width - inset * 2
+        return rect
+    }
 }
 
 class CalendarListView: NSView {
     private let outlineView = NoDisclosureOutlineView()
     private let scrollView = NSScrollView()
-    private let addButton = NSButton()
     private var accounts: [Account] = []
     private var calendarsByAccount: [String: [GCalendar]] = [:]
 
@@ -35,6 +74,7 @@ class CalendarListView: NSView {
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.indentationPerLevel = 0
+        outlineView.intercellSpacing = NSSize(width: 0, height: 2)
         outlineView.backgroundColor = .clear
 
         scrollView.documentView = outlineView
@@ -44,20 +84,11 @@ class CalendarListView: NSView {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
 
-        addButton.title = "Add Account…"
-        addButton.bezelStyle = .accessoryBarAction
-        addButton.target = self
-        addButton.action = #selector(addAccountClicked)
-        addButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(addButton)
-
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            addButton.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 8),
-            addButton.leadingAnchor.constraint(equalTo: leadingAnchor),
-            addButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 
@@ -158,8 +189,9 @@ extension CalendarListView: NSOutlineViewDataSource {
 
 extension CalendarListView: NSOutlineViewDelegate {
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        if accounts.contains(where: { $0.id == item as? String }) { return 42 }
-        return 28
+        guard let id = item as? String, accounts.contains(where: { $0.id == id }) else { return 32 }
+        let isFirst = accounts.first?.id == id
+        return isFirst ? 38 : 38 + 16
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
@@ -170,18 +202,22 @@ extension CalendarListView: NSOutlineViewDelegate {
 
         if let account = accounts.first(where: { $0.id == id }) {
             let cell = NSTableCellView()
+            let container = HoverableCalendarCell()
+            container.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(container)
+
             let label = NSTextField(labelWithString: account.email)
             label.font = .systemFont(ofSize: 12, weight: .medium)
             label.textColor = .secondaryLabelColor
             label.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(label)
+            container.addSubview(label)
 
             let isExpanded = outlineView.isItemExpanded(id)
             let caret = NSImageView(image: NSImage(systemSymbolName: isExpanded ? "chevron.down" : "chevron.right", accessibilityDescription: nil)!)
             caret.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
             caret.contentTintColor = .tertiaryLabelColor
             caret.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(caret)
+            container.addSubview(caret)
 
             let hitButton = NSButton()
             hitButton.title = ""
@@ -190,17 +226,24 @@ extension CalendarListView: NSOutlineViewDelegate {
             hitButton.isBordered = false
             hitButton.target = self
             hitButton.action = #selector(accountRowToggled(_:))
-            cell.addSubview(hitButton)
+            container.addSubview(hitButton)
 
+            let padding: CGFloat = 8
+            let topGap: CGFloat = accounts.first?.id == id ? 0 : 16
             NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-                label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 18),
-                caret.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                container.topAnchor.constraint(equalTo: cell.topAnchor, constant: topGap),
+                container.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+                container.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
+                container.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
+
+                label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
+                label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                caret.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -padding),
                 caret.centerYAnchor.constraint(equalTo: label.centerYAnchor),
-                hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
-                hitButton.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-                hitButton.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
-                hitButton.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
+                hitButton.topAnchor.constraint(equalTo: container.topAnchor),
+                hitButton.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                hitButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                hitButton.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             ])
             return cell
         }
@@ -209,29 +252,33 @@ extension CalendarListView: NSOutlineViewDelegate {
         guard let cal = allCalendars.first(where: { $0.id == id }) else { return nil }
 
         let cell = NSTableCellView()
+        let container = HoverableCalendarCell()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(container)
+
         let calColor = GoogleColorMap.color(for: cal.colorHex)
 
         let colorBox = NSView()
         colorBox.wantsLayer = true
         colorBox.layer?.backgroundColor = calColor.cgColor
-        colorBox.layer?.cornerRadius = 8
+        colorBox.layer?.cornerRadius = 6
         colorBox.layer?.borderWidth = 1
         colorBox.layer?.borderColor = calColor.blended(withFraction: 0.1, of: .black)?.cgColor
         colorBox.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(colorBox)
+        container.addSubview(colorBox)
 
         let checkmark = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)!)
-        checkmark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 9, weight: .bold)
+        checkmark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 8, weight: .bold)
         checkmark.contentTintColor = .white
         checkmark.translatesAutoresizingMaskIntoConstraints = false
         checkmark.isHidden = !cal.selected
-        cell.addSubview(checkmark)
+        container.addSubview(checkmark)
 
         let label = NSTextField(labelWithString: cal.summary)
         label.font = .systemFont(ofSize: 13)
         label.textColor = .secondaryLabelColor
         label.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(label)
+        container.addSubview(label)
 
         let hitButton = NSButton()
         hitButton.title = ""
@@ -240,34 +287,41 @@ extension CalendarListView: NSOutlineViewDelegate {
         hitButton.isBordered = false
         hitButton.target = self
         hitButton.action = #selector(calendarCheckboxToggled(_:))
-        cell.addSubview(hitButton)
+        container.addSubview(hitButton)
 
+        let padding: CGFloat = 8
         if cal.isReadOnly {
             let lock = NSImageView(image: NSImage(systemSymbolName: "lock.fill",
                                                    accessibilityDescription: "Read-only")!)
             lock.translatesAutoresizingMaskIntoConstraints = false
             lock.setContentHuggingPriority(.required, for: .horizontal)
-            cell.addSubview(lock)
+            container.addSubview(lock)
             NSLayoutConstraint.activate([
-                lock.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
-                lock.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                lock.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -padding),
+                lock.centerYAnchor.constraint(equalTo: container.centerYAnchor),
                 lock.widthAnchor.constraint(equalToConstant: 12),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: lock.leadingAnchor, constant: -4),
             ])
         }
 
         NSLayoutConstraint.activate([
-            colorBox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-            colorBox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            colorBox.widthAnchor.constraint(equalToConstant: 20),
-            colorBox.heightAnchor.constraint(equalToConstant: 20),
+            container.topAnchor.constraint(equalTo: cell.topAnchor),
+            container.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
+
+            colorBox.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: padding),
+            colorBox.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            colorBox.widthAnchor.constraint(equalToConstant: 17),
+            colorBox.heightAnchor.constraint(equalToConstant: 17),
             checkmark.centerXAnchor.constraint(equalTo: colorBox.centerXAnchor),
             checkmark.centerYAnchor.constraint(equalTo: colorBox.centerYAnchor),
             label.leadingAnchor.constraint(equalTo: colorBox.trailingAnchor, constant: 8),
-            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            hitButton.topAnchor.constraint(equalTo: cell.topAnchor),
-            hitButton.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-            hitButton.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
-            hitButton.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            hitButton.topAnchor.constraint(equalTo: container.topAnchor),
+            hitButton.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hitButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hitButton.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         return cell

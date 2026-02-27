@@ -13,7 +13,11 @@ actor SyncEngine {
     func syncAll() async {
         guard !isSyncing else { return }
         isSyncing = true
-        defer { isSyncing = false }
+        APIActivityTracker.shared.begin()
+        defer {
+            isSyncing = false
+            APIActivityTracker.shared.end()
+        }
 
         guard let accounts = try? accountStore.all() else { return }
 

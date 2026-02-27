@@ -20,8 +20,15 @@ enum EventEditorWindow {
         let editorView = EventEditorView(event: nil, startDate: startDate, endDate: endDate, isAllDay: allDay, calendars: calendars, onSave: { data in
             let accountId = calendars.first(where: { $0.id == data.calendarId })
                 .flatMap({ acct in accounts.first(where: { $0.id == acct.accountId }) })?.id ?? defaultAccountId
-            EventActions.createEvent(data: data, accountId: accountId)
-            panel.close()
+            if EventActions.createEvent(data: data, accountId: accountId) {
+                panel.close()
+            } else {
+                let alert = NSAlert()
+                alert.messageText = "Could Not Create Event"
+                alert.informativeText = "Failed to save the event. Please try again."
+                alert.addButton(withTitle: "OK")
+                alert.beginSheetModal(for: panel)
+            }
         }, onCancel: {
             panel.close()
         })

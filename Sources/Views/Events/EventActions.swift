@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 
 enum EventActions {
-    static func createEvent(data: EventEditorData, accountId: String) {
+    static func createEvent(data: EventEditorData, accountId: String) -> Bool {
         var event = Event(accountId: accountId, calendarId: data.calendarId,
                           summary: data.title, start: data.startDate, end: data.endDate,
                           allDay: data.isAllDay)
@@ -23,7 +23,11 @@ enum EventActions {
             event.attendeesJSON = AttendeeHelper.toJSON(data.attendees)
         }
 
-        try? EventStore(db: DatabaseManager.shared.pool).save(event)
+        do {
+            try EventStore(db: DatabaseManager.shared.pool).save(event)
+        } catch {
+            return false
+        }
 
         let body = eventToGoogleJSON(event)
         let op = PendingOp(accountId: accountId, calendarId: data.calendarId,
@@ -32,6 +36,7 @@ enum EventActions {
         OfflineQueue.shared.enqueue(op)
 
         NotificationCenter.default.post(name: .eventsChanged, object: nil)
+        return true
     }
 
     static func updateEvent(_ event: Event, data: EventEditorData) {

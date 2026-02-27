@@ -101,6 +101,8 @@ class CalendarContainerViewController: NSViewController {
     var onNavigate: (() -> Void)?
 
     @objc private func dataChanged() {
+        dayVC.timeGrid.selectedEventId = nil
+        weekVC.timeGrid.selectedEventId = nil
         dataSource.reload()
         updateActiveView()
     }
@@ -172,11 +174,13 @@ class CalendarContainerViewController: NSViewController {
     }
 
     private func editEvent(eventId: String) {
-        guard let event = try? EventStore(db: DatabaseManager.shared.pool).find(eventId) else { return }
+        guard let event = try? EventStore(db: DatabaseManager.shared.pool).find(eventId),
+              !event.deletedFlag else { return }
         editEvent(event: event)
     }
 
     private func editEvent(event: Event) {
+        guard !event.deletedFlag else { return }
         if event.recurringEventId != nil || event.recurrence != nil {
             EventEditorWindow.confirmRecurringAction(title: "Edit Recurring Event", window: view.window) { scope in
                 switch scope {

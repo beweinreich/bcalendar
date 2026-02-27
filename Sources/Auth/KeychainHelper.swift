@@ -7,7 +7,6 @@ enum KeychainHelper {
     private static let baseQuery: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: service,
-        kSecUseDataProtectionKeychain as String: true,
     ]
 
     static func save(account: String, data: Data) throws {

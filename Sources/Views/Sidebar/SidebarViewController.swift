@@ -18,27 +18,41 @@ class SidebarViewController: NSViewController {
         let container = SidebarContainerView()
         container.wantsLayer = true
 
-        let stack = NSStackView(views: [calendarList, miniMonth])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 20
-        stack.edgeInsets = NSEdgeInsets(top: 16, left: 14, bottom: 14, right: 14)
-        stack.distribution = .fill
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stack)
+        let miniMonthContainer = NSView()
+        miniMonthContainer.translatesAutoresizingMaskIntoConstraints = false
+        miniMonth.translatesAutoresizingMaskIntoConstraints = false
+        miniMonthContainer.addSubview(miniMonth)
 
-        miniMonth.setContentHuggingPriority(.defaultHigh, for: .vertical)
-        calendarList.setContentHuggingPriority(.defaultLow, for: .vertical)
+        let calendarListContainer = NSView()
+        calendarListContainer.translatesAutoresizingMaskIntoConstraints = false
+        calendarList.translatesAutoresizingMaskIntoConstraints = false
+        calendarListContainer.addSubview(calendarList)
 
+        container.addSubview(miniMonthContainer)
+        container.addSubview(calendarListContainer)
+
+        let padding: CGFloat = 8
+        let gapBelowCalendar: CGFloat = 12
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            miniMonthContainer.topAnchor.constraint(equalTo: container.topAnchor, constant: 32),
+            miniMonthContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            miniMonthContainer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
-            miniMonth.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28),
+            miniMonth.topAnchor.constraint(equalTo: miniMonthContainer.topAnchor, constant: padding),
+            miniMonth.leadingAnchor.constraint(equalTo: miniMonthContainer.leadingAnchor, constant: padding),
+            miniMonth.trailingAnchor.constraint(equalTo: miniMonthContainer.trailingAnchor, constant: -padding),
             miniMonth.heightAnchor.constraint(equalToConstant: 172),
-            calendarList.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28),
+            miniMonth.bottomAnchor.constraint(equalTo: miniMonthContainer.bottomAnchor, constant: -padding),
+
+            calendarListContainer.topAnchor.constraint(equalTo: miniMonthContainer.bottomAnchor, constant: gapBelowCalendar),
+            calendarListContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            calendarListContainer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            calendarListContainer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -padding),
+
+            calendarList.topAnchor.constraint(equalTo: calendarListContainer.topAnchor),
+            calendarList.leadingAnchor.constraint(equalTo: calendarListContainer.leadingAnchor),
+            calendarList.trailingAnchor.constraint(equalTo: calendarListContainer.trailingAnchor),
+            calendarList.bottomAnchor.constraint(equalTo: calendarListContainer.bottomAnchor),
         ])
 
         view = container

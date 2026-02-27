@@ -18,6 +18,7 @@ class DragController {
     private var dragCurrentDate: Date?
     private var dragOriginalStart: Date?
     private var dragOriginalEnd: Date?
+    private var dragCurrentPoint: NSPoint = .zero
 
     private enum DragType {
         case create, move, resize
@@ -26,6 +27,7 @@ class DragController {
     func mouseDown(at point: NSPoint, in grid: TimeGridView) {
         timeGrid = grid
         dragStartPoint = point
+        dragCurrentPoint = point
 
         if let (eventId, hitZone) = hitTestEvent(at: point, in: grid) {
             dragEventId = eventId
@@ -49,10 +51,15 @@ class DragController {
     func mouseDragged(to point: NSPoint, in grid: TimeGridView) {
         guard isDragging else { return }
         
-        if dragType == .create {
+        switch dragType {
+        case .create:
             dragCurrentDate = dateFromPoint(point, in: grid)
-            grid.needsDisplay = true
+        case .move:
+            dragCurrentPoint = point
+        case .resize:
+            break
         }
+        grid.needsDisplay = true
     }
 
     func mouseUp(at point: NSPoint, in grid: TimeGridView) {
@@ -90,11 +97,15 @@ class DragController {
             let roundedDt = (dtSeconds / 900).rounded() * 900
             let newStart = origStart.addingTimeInterval(roundedDt)
             let newEnd = origEnd.addingTimeInterval(roundedDt)
-            delegate?.dragDidMoveEvent(eventId: eventId, newStart: newStart, newEnd: newEnd)
+            if newStart != origStart || newEnd != origEnd {
+                delegate?.dragDidMoveEvent(eventId: eventId, newStart: newStart, newEnd: newEnd)
+            }
 
         case .resize:
-            guard let eventId = dragEventId else { return }
-            if let endDate = dateFromPoint(point, in: grid) {
+            if let eventId = dragEventId,
+               let origEnd = dragOriginalEnd,
+               let endDate = dateFromPoint(point, in: grid),
+               endDate != origEnd {
                 delegate?.dragDidResizeEvent(eventId: eventId, newEnd: endDate)
             }
         }
@@ -105,6 +116,24 @@ class DragController {
         dragOriginalStart = nil
         dragOriginalEnd = nil
         grid.needsDisplay = true
+    }
+
+    func getTemporaryMoveEvent() -> (event: DisplayEvent, start: Date, end: Date, column: Int)? {
+        guard isDragging, dragType == .move,
+              let eventId = dragEventId,
+              let origStart = dragOriginalStart,
+              let origEnd = dragOriginalEnd,
+              let grid = timeGrid,
+              let displayEvent = findDisplayEvent(eventId, in: grid) else { return nil }
+        let dy = dragCurrentPoint.y - dragStartPoint.y
+        let dtSeconds = TimeInterval(dy / grid.hourHeight * 3600)
+        let roundedDt = (dtSeconds / 900).rounded() * 900
+        let newStart = origStart.addingTimeInterval(roundedDt)
+        let newEnd = origEnd.addingTimeInterval(roundedDt)
+        let weekStart = grid.weekStartDate()
+        let dayOffset = Calendar.current.dateComponents([.day], from: weekStart, to: newStart).day ?? 0
+        let col = max(0, min(dayOffset, grid.numberOfColumns - 1))
+        return (displayEvent, newStart, newEnd, col)
     }
 
     func getTemporaryCreateEvent() -> (start: Date, end: Date, column: Int)? {

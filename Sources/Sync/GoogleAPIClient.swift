@@ -5,7 +5,8 @@ final class GoogleAPIClient {
     private let auth = GoogleAuthManager.shared
 
     func request(_ path: String, accountId: String, method: String = "GET",
-                 queryItems: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
+                 queryItems: [URLQueryItem] = [], body: [String: Any]? = nil,
+                 operation: String? = nil) async throws -> Data {
         let token = try await auth.refreshToken(for: accountId)
 
         var components = URLComponents(string: baseURL + path)!
@@ -21,9 +22,16 @@ final class GoogleAPIClient {
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
 
-        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-            throw APIError.httpError(httpResponse.statusCode, String(data: data, encoding: .utf8) ?? "")
+        if let op = operation {
+            let errorBody = statusCode >= 400 ? (String(data: data, encoding: .utf8) ?? "") : nil
+            APIRequestLogger.shared.log(operation: op, method: method, path: path,
+                                        statusCode: statusCode, errorMessage: errorBody)
+        }
+
+        if statusCode >= 400 {
+            throw APIError.httpError(statusCode, String(data: data, encoding: .utf8) ?? "")
         }
 
         return data
@@ -76,8 +84,8 @@ final class GoogleAPIClient {
 
     func insertEvent(accountId: String, calendarId: String, body: [String: Any]) async throws -> [String: Any] {
         let escapedCalId = calendarId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
-        let data = try await request("/calendars/\(escapedCalId)/events",
-                                      accountId: accountId, method: "POST", body: body)
+        let path = "/calendars/\(escapedCalId)/events"
+        let data = try await request(path, accountId: accountId, method: "POST", body: body, operation: "create")
         return try JSONSerialization.jsonObject(with: data) as! [String: Any]
     }
 
@@ -85,10 +93,10 @@ final class GoogleAPIClient {
                      body: [String: Any], sendUpdates: String = "none") async throws -> [String: Any] {
         let escapedCalId = calendarId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
         let escapedEvtId = eventId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
+        let path = "/calendars/\(escapedCalId)/events/\(escapedEvtId)"
         let queryItems = [URLQueryItem(name: "sendUpdates", value: sendUpdates)]
-        let data = try await request("/calendars/\(escapedCalId)/events/\(escapedEvtId)",
-                                      accountId: accountId, method: "PUT",
-                                      queryItems: queryItems, body: body)
+        let data = try await request(path, accountId: accountId, method: "PUT",
+                                     queryItems: queryItems, body: body, operation: "update")
         return try JSONSerialization.jsonObject(with: data) as! [String: Any]
     }
 
@@ -107,9 +115,10 @@ final class GoogleAPIClient {
                      sendUpdates: String = "none") async throws {
         let escapedCalId = calendarId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
         let escapedEvtId = eventId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
+        let path = "/calendars/\(escapedCalId)/events/\(escapedEvtId)"
         let queryItems = [URLQueryItem(name: "sendUpdates", value: sendUpdates)]
-        _ = try await request("/calendars/\(escapedCalId)/events/\(escapedEvtId)",
-                               accountId: accountId, method: "DELETE", queryItems: queryItems)
+        _ = try await request(path, accountId: accountId, method: "DELETE",
+                              queryItems: queryItems, operation: "delete")
     }
 }
 

@@ -280,9 +280,15 @@ class TimeGridView: NSView {
         for (event, rect) in allLayouts {
             let isSelected = event.id == selectedEventId
             let bgColor = isSelected ? event.color.pastelSelected : event.color.pastel
+            let barColor = bgColor.pastelLighter
 
             bgColor.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
+            NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8).fill()
+
+            let barWidth: CGFloat = 4
+            let barRect = NSRect(x: rect.minX + 2, y: rect.minY + 2, width: barWidth, height: rect.height - 4)
+            barColor.setFill()
+            NSBezierPath(roundedRect: barRect, xRadius: 2, yRadius: 2).fill()
 
             let titleColor = event.color
             let titleAttrs: [NSAttributedString.Key: Any] = [
@@ -292,7 +298,7 @@ class TimeGridView: NSView {
             let title = NSAttributedString(string: event.title, attributes: titleAttrs)
             let duration = event.end.timeIntervalSince(event.start)
             let isShortEvent = duration <= 15 * 60
-            let textRect = rect.insetBy(dx: isShortEvent ? 4 : 10, dy: isShortEvent ? 1 : 6)
+            let textRect = rect.insetBy(dx: isShortEvent ? 8 : 10, dy: isShortEvent ? 1 : 6)
             title.draw(in: textRect)
 
             let titleSize = title.boundingRect(with: textRect.size, options: [.usesLineFragmentOrigin])
@@ -309,7 +315,31 @@ class TimeGridView: NSView {
             }
         }
         
-        if let tempEvent = dragController.getTemporaryCreateEvent() {
+        if let tempMove = dragController.getTemporaryMoveEvent() {
+            let startComps = cal.dateComponents([.hour, .minute], from: tempMove.start)
+            let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
+            let height = CGFloat(tempMove.end.timeIntervalSince(tempMove.start)) / 3600.0 * hourHeight
+            let x = gutterWidth + CGFloat(tempMove.column) * colWidth + 2
+            let rect = NSRect(x: x, y: startY + 1, width: colWidth - 4, height: max(height - 2, hourHeight / 4))
+
+            let bgColor = tempMove.event.color.pastel.withAlphaComponent(0.5)
+            let barColor = tempMove.event.color.pastelLighter.withAlphaComponent(0.5)
+            bgColor.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8).fill()
+            let barWidth: CGFloat = 4
+            let barRect = NSRect(x: rect.minX + 2, y: rect.minY + 2, width: barWidth, height: rect.height - 4)
+            barColor.setFill()
+            NSBezierPath(roundedRect: barRect, xRadius: 2, yRadius: 2).fill()
+            let titleAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: tempMove.event.color.withAlphaComponent(0.7)
+            ]
+            let title = NSAttributedString(string: tempMove.event.title, attributes: titleAttrs)
+            let duration = tempMove.end.timeIntervalSince(tempMove.start)
+            let isShortEvent = duration <= 15 * 60
+            let textRect = rect.insetBy(dx: isShortEvent ? 8 : 10, dy: isShortEvent ? 1 : 6)
+            title.draw(in: textRect)
+        } else if let tempEvent = dragController.getTemporaryCreateEvent() {
             let startComps = cal.dateComponents([.hour, .minute], from: tempEvent.start)
             let startY = bodyTopOffset + CGFloat(startComps.hour! * 60 + startComps.minute!) / 60.0 * hourHeight
             let height = CGFloat(tempEvent.end.timeIntervalSince(tempEvent.start)) / 3600.0 * hourHeight
@@ -317,10 +347,15 @@ class TimeGridView: NSView {
             
             let rect = NSRect(x: x, y: startY + 1, width: colWidth - 4, height: max(height - 2, hourHeight / 4))
             
-            NSColor.systemBlue.pastel.setFill()
-            let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
-            path.fill()
-            
+            let tempBg = NSColor.systemBlue.pastel
+            tempBg.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8).fill()
+
+            let barWidth: CGFloat = 4
+            let barRect = NSRect(x: rect.minX + 2, y: rect.minY + 2, width: barWidth, height: rect.height - 4)
+            tempBg.pastelLighter.setFill()
+            NSBezierPath(roundedRect: barRect, xRadius: 2, yRadius: 2).fill()
+
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium),
                 .foregroundColor: NSColor.systemBlue
